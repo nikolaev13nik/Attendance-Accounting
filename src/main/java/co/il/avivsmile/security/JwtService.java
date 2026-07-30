@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 
+import static co.il.avivsmile.security.SecurityConstants.AUTHORITIES;
+
 @Service
 public class JwtService {
     private final JwtEncoder jwtEncoder;
@@ -32,7 +34,7 @@ public class JwtService {
                 .subject(authentication.getName())
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
-                .claim("authorities",authorities)
+                .claim(AUTHORITIES, authorities)
                 .build();
         JwsHeader header  = JwsHeader.with(MacAlgorithm.HS256).build();
         String token = jwtEncoder.encode(JwtEncoderParameters.from(header,claims)).getTokenValue();

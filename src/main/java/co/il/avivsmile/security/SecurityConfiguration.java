@@ -1,6 +1,7 @@
 package co.il.avivsmile.security;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.security.autoconfigure.web.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
@@ -9,7 +10,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -27,13 +27,12 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
 import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.cors.CorsConfigurationSource;
+
+import java.nio.charset.StandardCharsets;
 
 import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+
+import static co.il.avivsmile.security.SecurityConstants.AUTHORITIES;
 
 @Configuration
 @EnableWebSecurity
@@ -41,7 +40,6 @@ import java.util.Arrays;
 public class SecurityConfiguration {
 
 	private final String ADMINISTRATOR_ROLE="ADMINISTRATOR";
-	private final String AUTHORITIES="authorities";
 
 	@Bean
 	SecretKeySpec jwtSecretKey(@Value("${avivsmile.security.jwt.secret}") String secret){
@@ -78,7 +76,7 @@ public class SecurityConfiguration {
 	JwtAuthenticationConverter jwtAuthenticationConverter(){
 		JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
 		authoritiesConverter.setAuthoritiesClaimName(AUTHORITIES);
-		authoritiesConverter.setAuthorityPrefix("");
+		authoritiesConverter.setAuthorityPrefix("ROLE_");
 		JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
 		converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
 		return converter;
@@ -109,7 +107,6 @@ public class SecurityConfiguration {
 						.access(authz.expression("@customWebSecurity.checkStartFinishRecords(#idUser, authentication) or hasRole('ADMINISTRATOR')"))
 				.requestMatchers(HttpMethod.POST, "/record").hasRole(ADMINISTRATOR_ROLE)
 				.requestMatchers(HttpMethod.DELETE, "/record/remove/{id}").hasRole(ADMINISTRATOR_ROLE)
-//				.requestMatchers(HttpMethod.PUT, "/account/user").authenticated()
 				.requestMatchers(HttpMethod.DELETE, "/account/user/{idUser}").hasRole(ADMINISTRATOR_ROLE)
 				.requestMatchers(HttpMethod.POST, "/account/login").permitAll()
 				.requestMatchers(HttpMethod.POST, "/account/user/{idUser}/role/{role}").hasRole(ADMINISTRATOR_ROLE)
