@@ -10,11 +10,11 @@
 		<version>4.1.0</version>
 		<relativePath/> </parent>
 
-	<groupId>co.il.avivsmile</groupId>
-	<artifactId>AvivSmile</artifactId>
+	<groupId>co.il.attendanceaccounting</groupId>
+	<artifactId>Attendance-Accounting</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>AvivSmile</name>
-	<description>Spring Boot Aviv Smile</description>
+	<name>Attendance-Accounting</name>
+	<description>Spring Boot Attendance Accounting</description>
 
 	<properties>
 		<java.version>17</java.version>
@@ -160,10 +160,10 @@
 							<goal>generate</goal>
 						</goals>
 						<configuration>
-							<inputSpec>${project.basedir}/src/main/resources/swagger-source/aviv-smile-account.yaml</inputSpec>
+							<inputSpec>${project.basedir}/src/main/resources/swagger-source/attendance-accounting-account.yaml</inputSpec>
 							<generatorName>spring</generatorName>
-							<apiPackage>co.il.avivsmile.api</apiPackage>
-							<modelPackage>co.il.avivsmile.dto</modelPackage>
+							<apiPackage>co.il.attendanceaccounting.api</apiPackage>
+							<modelPackage>co.il.attendanceaccounting.dto</modelPackage>
 							<generateSupportingFiles>false</generateSupportingFiles>
 							<generateApiTests>false</generateApiTests>
 							<generateApiDocumentation>false</generateApiDocumentation>
