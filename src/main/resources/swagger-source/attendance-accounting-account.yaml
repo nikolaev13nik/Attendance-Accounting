@@ -1,0 +1,400 @@
+swagger: '2.0'
+
+info:
+  title: Attendance Accounting Account
+  description: |
+    Services for user account management (registration, profile edit, roles, and listing).
+  version: 1.0.0
+
+consumes:
+  - application/json
+produces:
+  - application/json
+
+tags:
+  - name: Account
+    description: User account management
+
+paths:
+
+  /account/user:
+    post:
+      summary: Registers a new user
+      operationId: register
+      tags:
+        - Account
+      parameters:
+        - name: UserRegisterDto
+          in: body
+          description: |
+            Details of the user to register
+          required: true
+          schema:
+            $ref: '#/definitions/UserRegisterDto'
+      responses:
+        '201':
+          description: |
+            Created user profile
+          schema:
+            $ref: '#/definitions/UserProfileDto'
+        '400':
+          $ref: '#/responses/400-BadRequest'
+        '409':
+          $ref: '#/responses/409-Conflict'
+        '500':
+          $ref: '#/responses/500-InternalServerError'
+
+  /account/user/{idUser}:
+    delete:
+      summary: Removes a user
+      operationId: removeUser
+      tags:
+        - Account
+      parameters:
+        - name: idUser
+          in: path
+          description: |
+            Unique identifier of the user
+          required: true
+          type: integer
+          format: int32
+          minimum: 1
+      responses:
+        '200':
+          description: |
+            Removed user profile
+          schema:
+            $ref: '#/definitions/UserProfileDto'
+        '400':
+          $ref: '#/responses/400-BadRequest'
+        '401':
+          $ref: '#/responses/401-Unauthorized'
+        '403':
+          $ref: '#/responses/403-Forbidden'
+        '500':
+          $ref: '#/responses/500-InternalServerError'
+
+  /account/user/password/{idUser}:
+    put:
+      summary: Updates a user's profile and/or password
+      operationId: editUser
+      tags:
+        - Account
+      parameters:
+        - name: idUser
+          in: path
+          description: |
+            Unique identifier of the user
+          required: true
+          type: integer
+          format: int32
+          minimum: 1
+        - name: UserEditDto
+          in: body
+          description: |
+            Fields to update (only non-null fields are applied)
+          required: true
+          schema:
+            $ref: '#/definitions/UserEditDto'
+      responses:
+        '200':
+          description: |
+            Updated user profile
+          schema:
+            $ref: '#/definitions/UserProfileDto'
+        '400':
+          $ref: '#/responses/400-BadRequest'
+        '401':
+          $ref: '#/responses/401-Unauthorized'
+        '403':
+          $ref: '#/responses/403-Forbidden'
+        '500':
+          $ref: '#/responses/500-InternalServerError'
+
+  /account/user/{idUser}/role/{role}:
+    post:
+      summary: Adds a role to a user
+      operationId: addRole
+      tags:
+        - Account
+      parameters:
+        - name: idUser
+          in: path
+          description: |
+            Unique identifier of the user
+          required: true
+          type: integer
+          format: int32
+          minimum: 1
+        - name: role
+          in: path
+          description: |
+            Role to add
+          required: true
+          type: string
+      responses:
+        '200':
+          description: |
+            User profile with the updated roles
+          schema:
+            $ref: '#/definitions/UserProfileDto'
+        '400':
+          $ref: '#/responses/400-BadRequest'
+        '401':
+          $ref: '#/responses/401-Unauthorized'
+        '403':
+          $ref: '#/responses/403-Forbidden'
+        '500':
+          $ref: '#/responses/500-InternalServerError'
+
+    delete:
+      summary: Removes a role from a user
+      operationId: removeRole
+      tags:
+        - Account
+      parameters:
+        - name: idUser
+          in: path
+          description: |
+            Unique identifier of the user
+          required: true
+          type: integer
+          format: int32
+          minimum: 1
+        - name: role
+          in: path
+          description: |
+            Role to remove
+          required: true
+          type: string
+      responses:
+        '200':
+          description: |
+            User profile with the updated roles
+          schema:
+            $ref: '#/definitions/UserProfileDto'
+        '400':
+          $ref: '#/responses/400-BadRequest'
+        '401':
+          $ref: '#/responses/401-Unauthorized'
+        '403':
+          $ref: '#/responses/403-Forbidden'
+        '500':
+          $ref: '#/responses/500-InternalServerError'
+
+  /account/users:
+    get:
+      summary: Lists all users
+      operationId: getAllUsers
+      tags:
+        - Account
+      responses:
+        '200':
+          description: |
+            All user profiles
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/UserProfileDto'
+        '401':
+          $ref: '#/responses/401-Unauthorized'
+        '500':
+          $ref: '#/responses/500-InternalServerError'
+
+
+definitions:
+
+  UserRegisterDto:
+    type: object
+    description: |
+      Input for registering a user
+    properties:
+      idUser:
+        description: |
+          Unique identifier of the user
+        type: integer
+        format: int32
+        minimum: 1
+      password:
+        description: |
+          Password of the user
+        type: string
+        minLength: 1
+      firstName:
+        description: |
+          First name of the user
+        type: string
+      lastName:
+        description: |
+          Last name of the user
+        type: string
+    required:
+      - idUser
+      - password
+
+  UserEditDto:
+    type: object
+    description: |
+      Input for editing a user; only non-null fields are applied
+    properties:
+      firstName:
+        description: |
+          First name of the user
+        type: string
+      lastName:
+        description: |
+          Last name of the user
+        type: string
+      password:
+        description: |
+          New password of the user
+        type: string
+
+  UserProfileDto:
+    type: object
+    description: |
+      User profile resource returned by the account operations
+    properties:
+      idUser:
+        description: |
+          Unique identifier of the user
+        type: integer
+        format: int32
+      firstName:
+        description: |
+          First name of the user
+        type: string
+      lastName:
+        description: |
+          Last name of the user
+        type: string
+      roles:
+        description: |
+          Roles assigned to the user
+        type: array
+        uniqueItems: true
+        items:
+          type: string
+
+  ApiError:
+    type: object
+    description: |
+      Standard error payload
+    properties:
+      status:
+        description: |
+          HTTP status
+        type: string
+      error:
+        description: |
+          Short error description
+        type: string
+      message:
+        description: |
+          Human-readable explanation of the error
+        type: string
+      path:
+        description: |
+          Request path that produced the error
+        type: string
+
+  UserDto:
+    type: object
+    description: |
+      Basic user information embedded in a time record
+    properties:
+      idUser:
+        description: |
+          Unique identifier of the user
+        type: integer
+        format: int32
+      firstName:
+        description: |
+          First name of the user
+        type: string
+      lastName:
+        description: |
+          Last name of the user
+        type: string
+
+  DataTimeDto:
+    type: object
+    description: |
+      A single work-time record
+    properties:
+      id:
+        description: |
+          Unique identifier of the record
+        type: integer
+        format: int32
+      user:
+        $ref: '#/definitions/UserDto'
+      date:
+        description: |
+          Calendar day of the record
+        type: string
+        format: date
+      start:
+        description: |
+          Moment the record was started
+        type: string
+        format: date-time
+      finish:
+        description: |
+          Moment the record was finished
+        type: string
+        format: date-time
+
+  EditDataTimeUserDto:
+    type: object
+    description: |
+      Input for editing a work-time record's start and/or finish
+    properties:
+      id:
+        description: |
+          Unique identifier of the record to edit
+        type: integer
+        format: int32
+      start:
+        description: |
+          New start moment
+        type: string
+        format: date-time
+      finish:
+        description: |
+          New finish moment
+        type: string
+        format: date-time
+
+
+responses:
+
+  400-BadRequest:
+    description: |
+      Bad Request - the server cannot process the request due to a client error.
+    schema:
+      $ref: '#/definitions/ApiError'
+
+  401-Unauthorized:
+    description: |
+      Unauthorized - valid authentication credentials are missing.
+    schema:
+      $ref: '#/definitions/ApiError'
+
+  403-Forbidden:
+    description: |
+      Forbidden - the authenticated user is not allowed to perform this operation.
+    schema:
+      $ref: '#/definitions/ApiError'
+
+  409-Conflict:
+    description: |
+      Conflict - the request conflicts with the current state of the resource.
+    schema:
+      $ref: '#/definitions/ApiError'
+
+  500-InternalServerError:
+    description: |
+      Internal Server Error - an unexpected condition prevented the request from completing.
+    schema:
+      $ref: '#/definitions/ApiError'
