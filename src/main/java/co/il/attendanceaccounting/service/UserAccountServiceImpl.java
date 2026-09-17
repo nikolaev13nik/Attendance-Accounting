@@ -34,6 +34,8 @@ public class UserAccountServiceImpl implements UserAccountService {
 				.password(hashPassword)
 				.firstName(userRegisterDto.getFirstName())
 				.lastName(userRegisterDto.getLastName())
+				.email(userRegisterDto.getEmail())
+				.tenantId(userRegisterDto.getTenantId())
 				.role("User")
 				.records(new ArrayList<>())
 				.build();
@@ -46,6 +48,8 @@ public class UserAccountServiceImpl implements UserAccountService {
 				.idUser(userAccount.getIdUser())
 				.firstName(userAccount.getFirstName())
 				.lastName(userAccount.getLastName())
+				.email(userAccount.getEmail())
+				.tenantId(userAccount.getTenantId())
 				.roles(userAccount.getRoles())
 				.build();
 	}
@@ -69,6 +73,9 @@ public class UserAccountServiceImpl implements UserAccountService {
 		if (userEditDto.getPassword() != null) {
 			String hashPassword = passwordEncoder.encode(userEditDto.getPassword());
 			user.setPassword(hashPassword);
+		}
+		if (userEditDto.getEmail() != null) {
+			user.setEmail(userEditDto.getEmail());
 		}
 		accountRepository.save(user);
 		return userToUserProfileDto(user);

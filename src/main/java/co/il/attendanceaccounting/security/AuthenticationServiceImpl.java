@@ -1,6 +1,8 @@
 package co.il.attendanceaccounting.security;
 
+import co.il.attendanceaccounting.dao.UserRepository;
 import co.il.attendanceaccounting.exceptions.UserAuthenticationException;
+import co.il.attendanceaccounting.model.User;
 import co.il.attendanceaccounting.security.dto.LoginRequestDto;
 import co.il.attendanceaccounting.security.dto.LoginResponseDto;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -16,15 +18,17 @@ public class AuthenticationServiceImpl implements AuthenticationService{
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
-    public AuthenticationServiceImpl(AuthenticationManager authenticationManager, JwtService jwtService) {
+    public AuthenticationServiceImpl(AuthenticationManager authenticationManager, JwtService jwtService, UserRepository userRepository) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
     }
 
     @Override
     public LoginResponseDto authenticate(LoginRequestDto request) {
-        if (request == null || request.idUser() == null || request.password() == null) {
+        if (request == null || request.idUser() == null || request.password() == null || request.tenantId() == null) {
             throw new UserAuthenticationException("Missing credentials", null);
         }
             Authentication authentication;
@@ -34,7 +38,12 @@ public class AuthenticationServiceImpl implements AuthenticationService{
             }catch (AuthenticationException ex){
                 throw new UserAuthenticationException("Invalid credentials", ex);
             }
-            JwtService.MintedToken minted = jwtService.mint(authentication);
+            User user = userRepository.findById(request.idUser())
+                    .orElseThrow(() -> new UserAuthenticationException("Invalid credentials", null));
+            if (!user.getTenantId().equals(request.tenantId())) {
+                throw new UserAuthenticationException("Invalid credentials", null);
+            }
+            JwtService.MintedToken minted = jwtService.mint(authentication, user.getTenantId());
             return new LoginResponseDto(minted.token(),TOKEN_TYPE,minted.expiresIn(),null);
         }
 

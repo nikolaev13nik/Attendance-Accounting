@@ -48,10 +48,16 @@ public abstract class BaseApiControllerTest {
 
     protected static final Integer ADMIN_ID = 1;
     protected static final String ADMIN_PWD = "admin123";
+    protected static final String ADMIN_EMAIL = "admin@attendance.local";
+    protected static final Integer ADMIN_TENANT_ID = 100;
     protected static final Integer USER_ID = 2;
     protected static final String USER_PWD = "user123";
+    protected static final String USER_EMAIL = "john.doe@attendance.local";
+    protected static final Integer USER_TENANT_ID = 100;
     protected static final Integer OTHER_USER_ID = 3;
     protected static final String OTHER_USER_PWD = "other123";
+    protected static final String OTHER_USER_EMAIL = "jane.roe@attendance.local";
+    protected static final Integer OTHER_USER_TENANT_ID = 200;
 
     protected static final String FORBIDDEN_MESSAGE = "Forbidden";
 
@@ -90,9 +96,23 @@ public abstract class BaseApiControllerTest {
     private String obtainToken(Integer secureUser, String securePass) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        String payload = objectMapper.writeValueAsString(new LoginRequestDto(secureUser,securePass));
+        String payload = objectMapper.writeValueAsString(new LoginRequestDto(secureUser,securePass, tenantIdFor(secureUser)));
         ResponseEntity<String>response = rest.exchange(url("/account/login"),HttpMethod.POST,new HttpEntity<>(payload,headers),String.class);
         return json(response).path("token").asString();
+    }
+
+    /** Resolves the tenant id for the well-known seeded users used across tests */
+    protected Integer tenantIdFor(Integer idUser) {
+        if (ADMIN_ID.equals(idUser)) {
+            return ADMIN_TENANT_ID;
+        }
+        if (USER_ID.equals(idUser)) {
+            return USER_TENANT_ID;
+        }
+        if (OTHER_USER_ID.equals(idUser)) {
+            return OTHER_USER_TENANT_ID;
+        }
+        return null;
     }
 
     /** Deserialize the response body into a single Object */
@@ -139,20 +159,23 @@ public abstract class BaseApiControllerTest {
     }
 
     // Helper builders matching Dto properties
-    protected UserRegisterDto createUserRegisterDto(Integer idUser, String password, String firstName, String lastName) {
+    protected UserRegisterDto createUserRegisterDto(Integer idUser, String password, String firstName, String lastName, String email, Integer tenantId) {
         return UserRegisterDto.builder()
                 .idUser(idUser)
                 .password(password)
                 .firstName(firstName)
                 .lastName(lastName)
+                .email(email)
+                .tenantId(tenantId)
                 .build();
     }
 
-    protected UserEditDto createUserEditDto(String firstName, String lastName, String password) {
+    protected UserEditDto createUserEditDto(String firstName, String lastName, String password, String email) {
         return UserEditDto.builder()
                 .firstName(firstName)
                 .lastName(lastName)
                 .password(password)
+                .email(email)
                 .build();
     }
 

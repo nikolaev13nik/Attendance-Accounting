@@ -1,4 +1,4 @@
 package co.il.attendanceaccounting.security.dto;
 
-public record  LoginRequestDto (Integer idUser, String password){
+public record  LoginRequestDto (Integer idUser, String password, Integer tenantId){
 }

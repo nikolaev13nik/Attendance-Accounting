@@ -228,9 +228,22 @@ definitions:
         description: |
           Last name of the user
         type: string
+      email:
+        description: |
+          Email address of the user
+        type: string
+        format: email
+      tenantId:
+        description: |
+          Identifier of the tenant the user belongs to
+        type: integer
+        format: int32
+        minimum: 1
     required:
       - idUser
       - password
+      - email
+      - tenantId
 
   UserEditDto:
     type: object
@@ -249,6 +262,11 @@ definitions:
         description: |
           New password of the user
         type: string
+      email:
+        description: |
+          New email address of the user
+        type: string
+        format: email
 
   UserProfileDto:
     type: object
@@ -268,6 +286,16 @@ definitions:
         description: |
           Last name of the user
         type: string
+      email:
+        description: |
+          Email address of the user
+        type: string
+        format: email
+      tenantId:
+        description: |
+          Identifier of the tenant the user belongs to
+        type: integer
+        format: int32
       roles:
         description: |
           Roles assigned to the user

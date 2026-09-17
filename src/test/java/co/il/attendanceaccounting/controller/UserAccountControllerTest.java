@@ -24,20 +24,25 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     private static final String LOGIN_URL = ACCOUNT_URL + "/login";
     private static final String USERS_URL = ACCOUNT_URL + "/users";
     private static final String ROLE_URL = "/role/";
+    private static final Integer NEW_TENANT_ID = 300;
 
     @Test
     @FlywayTest
     @DisplayName("POST /account/user registers a new user (public) and persists it")
     void registerNewUserTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(99, "pw", "New", "User"), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(99, "pw", "New", "User", "new.user@example.com", NEW_TENANT_ID), null, null);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
         assertEquals(99, body.getIdUser().intValue());
         assertEquals("New", body.getFirstName());
         assertEquals("User", body.getLastName());
+        assertEquals("new.user@example.com", body.getEmail());
+        assertEquals(NEW_TENANT_ID, body.getTenantId());
         assertTrue(body.getRoles().contains("User"), "Reason: new user gets the default 'User' role");
         assertEquals(1, body.getRoles().size());
         assertTrue(userRepository.existsById(99));
+        assertEquals("new.user@example.com", userRepository.findById(99).orElseThrow().getEmail());
+        assertEquals(NEW_TENANT_ID, userRepository.findById(99).orElseThrow().getTenantId());
     }
 
     @Test
@@ -45,7 +50,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @DisplayName("POST /account/user with an existing id returns 409 CONFLICT")
     void registerExistingUserTest() {
         long before = userRepository.count();
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(USER_ID, "pw", "Dup", "User"), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(USER_ID, "pw", "Dup", "User", "dup@example.com", NEW_TENANT_ID), null, null);
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         assertEquals("user exists", errorMessage(response));
         assertEquals(before, userRepository.count(), "Reason: no user should be added");
@@ -53,9 +58,42 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
+    @DisplayName("POST /account/user with a malformed email returns 400 BAD_REQUEST")
+    void registerWithInvalidEmailTest() {
+        long before = userRepository.count();
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(98, "pw", "New", "User", "not-an-email", NEW_TENANT_ID), null, null);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(before, userRepository.count(), "Reason: no user should be added");
+        assertFalse(userRepository.existsById(98));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/user without an email returns 400 BAD_REQUEST")
+    void registerWithMissingEmailTest() {
+        long before = userRepository.count();
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(97, "pw", "New", "User", null, NEW_TENANT_ID), null, null);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(before, userRepository.count(), "Reason: no user should be added");
+        assertFalse(userRepository.existsById(97));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/user without a tenantId returns 400 BAD_REQUEST")
+    void registerWithMissingTenantIdTest() {
+        long before = userRepository.count();
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(96, "pw", "New", "User", "new.user2@example.com", null), null, null);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(before, userRepository.count(), "Reason: no user should be added");
+        assertFalse(userRepository.existsById(96));
+    }
+
+    @Test
+    @FlywayTest
     @DisplayName("POST /account/login with valid credentials  returns token and profile")
     void loginValidTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto( USER_ID, USER_PWD),null,null);
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto( USER_ID, USER_PWD, USER_TENANT_ID),null,null);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         LoginResponseDto body = readObject(response, LoginResponseDto.class);
         assertEquals("Bearer", body.getTokenType());
@@ -63,6 +101,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals(USER_ID,profile.getIdUser().intValue());
         assertEquals("John", profile.getFirstName());
         assertEquals("Doe", profile.getLastName());
+        assertEquals(USER_EMAIL, profile.getEmail());
+        assertEquals(USER_TENANT_ID, profile.getTenantId());
         assertTrue(profile.getRoles().contains("User"));
     }
 
@@ -70,7 +110,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("POST /account/login without credentials returns 401 UNAUTHORIZED")
     void loginAnonymousTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto(null,null), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto(null,null, null), null, null);
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
@@ -78,7 +118,23 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("POST /account/login with a wrong password returns 401 UNAUTHORIZED")
     void loginWrongPasswordTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto(USER_ID,"wrong-password"),null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto(USER_ID,"wrong-password", USER_TENANT_ID),null, null);
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/login with a wrong tenantId returns 401 UNAUTHORIZED")
+    void loginWrongTenantTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto(USER_ID, USER_PWD, OTHER_USER_TENANT_ID), null, null);
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/login without a tenantId returns 401 UNAUTHORIZED")
+    void loginMissingTenantTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto(USER_ID, USER_PWD, null), null, null);
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
@@ -92,6 +148,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals(OTHER_USER_ID, body.getIdUser().intValue());
         assertEquals("Jane", body.getFirstName());
         assertEquals("Roe", body.getLastName());
+        assertEquals(OTHER_USER_EMAIL, body.getEmail());
         assertFalse(userRepository.existsById(OTHER_USER_ID));
     }
 
@@ -118,7 +175,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("PUT /account/user/password/{id} as the same user updates the profile")
     void editUserSelfTest() {
-        ResponseEntity<String> response = send(HttpMethod.PUT, USER_PASSWORD_URL + USER_ID, createUserEditDto("Johnny", null, null), USER_ID, USER_PWD);
+        ResponseEntity<String> response = send(HttpMethod.PUT, USER_PASSWORD_URL + USER_ID, createUserEditDto("Johnny", null, null, null), USER_ID, USER_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
         assertEquals("Johnny", body.getFirstName());
@@ -129,10 +186,30 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("PUT/account/user/password/{id} for another user (non-admin) returns 403")
     void editUserForbiddenTest() {
-        ResponseEntity<String> response = send(HttpMethod.PUT, USER_PASSWORD_URL + OTHER_USER_ID, createUserEditDto("Hacker", null, null), USER_ID, USER_PWD);
+        ResponseEntity<String> response = send(HttpMethod.PUT, USER_PASSWORD_URL + OTHER_USER_ID, createUserEditDto("Hacker", null, null, null), USER_ID, USER_PWD);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
         assertEquals("Jane", userRepository.findById(OTHER_USER_ID).orElseThrow().getFirstName());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("PUT /account/user/password/{id} as the same user updates the email")
+    void editUserEmailTest() {
+        ResponseEntity<String> response = send(HttpMethod.PUT, USER_PASSWORD_URL + USER_ID, createUserEditDto(null, null, null, "john.new@example.com"), USER_ID, USER_PWD);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        UserProfileDto body = readObject(response, UserProfileDto.class);
+        assertEquals("john.new@example.com", body.getEmail());
+        assertEquals("john.new@example.com", userRepository.findById(USER_ID).orElseThrow().getEmail());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("PUT /account/user/password/{id} with a malformed email returns 400 and keeps the original email")
+    void editUserInvalidEmailTest() {
+        ResponseEntity<String> response = send(HttpMethod.PUT, USER_PASSWORD_URL + USER_ID, createUserEditDto(null, null, null, "not-an-email"), USER_ID, USER_PWD);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(USER_EMAIL, userRepository.findById(USER_ID).orElseThrow().getEmail());
     }
 
     @Test
@@ -188,6 +265,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         List<Integer> ids = users.stream().map(UserProfileDto::getIdUser).toList();
         assertEquals((int) userRepository.count(), users.size());
         assertTrue(ids.containsAll(List.of(ADMIN_ID, USER_ID, OTHER_USER_ID)));
+        assertEquals(USER_EMAIL, users.stream().filter(u -> u.getIdUser().equals(USER_ID)).findFirst().orElseThrow().getEmail());
+        assertEquals(ADMIN_EMAIL, users.stream().filter(u -> u.getIdUser().equals(ADMIN_ID)).findFirst().orElseThrow().getEmail());
     }
 
     @Test

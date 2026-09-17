@@ -179,6 +179,7 @@
 								<skipDefaultInterface>true</skipDefaultInterface>
 								<useResponseEntity>true</useResponseEntity>
 								<generateBuilders>true</generateBuilders>
+								<performBeanValidation>true</performBeanValidation>
 								<openApiNullable>false</openApiNullable>
 								<documentationProvider>none</documentationProvider>
 								<annotationLibrary>swagger2</annotationLibrary>

@@ -35,6 +35,7 @@ public class AttendanceAccountingApplication implements CommandLineRunner{
 			String hashPassword = passwordEncoder.encode("admin");
 			User admin = User.builder().idUser(123456789).password(hashPassword).firstName("Super")
 					.lastName("Admin")
+					.tenantId(SecurityConstants.SYSTEM_TENANT_ID)
 					.roles(Arrays.stream(SecurityConstants.SecurityRoles.values()).map(Enum::name)
 							.collect(Collectors.toSet())).build();
 			accountRepository.save(admin);

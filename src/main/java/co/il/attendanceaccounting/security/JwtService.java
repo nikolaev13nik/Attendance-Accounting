@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static co.il.attendanceaccounting.security.SecurityConstants.AUTHORITIES;
+import static co.il.attendanceaccounting.security.SecurityConstants.TENANT_ID;
 
 @Service
 public class JwtService {
@@ -26,7 +27,7 @@ public class JwtService {
         this.ttlSeconds = ttlSeconds;
     }
 
-    public MintedToken mint(Authentication authentication){
+    public MintedToken mint(Authentication authentication, Integer tenantId){
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plusSeconds(ttlSeconds);
         List<String> authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList();
@@ -35,7 +36,7 @@ public class JwtService {
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
                 .claim(AUTHORITIES, authorities)
-//                .claim()
+                .claim(TENANT_ID, tenantId)
                 .build();
         JwsHeader header  = JwsHeader.with(MacAlgorithm.HS256).build();
         String token = jwtEncoder.encode(JwtEncoderParameters.from(header,claims)).getTokenValue();
