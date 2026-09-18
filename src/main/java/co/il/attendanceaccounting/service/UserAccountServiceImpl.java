@@ -118,8 +118,10 @@ public class UserAccountServiceImpl implements UserAccountService {
 	}
 
 	@Override
-	public List<UserProfileDto> getAllUsers() {
-		List<User> listUsers = accountRepository.findAll();
+	public List<UserProfileDto> getAllUsers(Integer tenantId) {
+		List<User> listUsers = tenantId == null
+				? accountRepository.findAll()
+				: accountRepository.findByTenantId(tenantId);
 		return listUsers.stream().map(this::userToUserProfileDto).toList();
 	}
 }

@@ -25,5 +25,5 @@ public interface UserAccountService {
 
 	UserProfileDto removeRole(Integer idUser, String role);
 
-	List<UserProfileDto>getAllUsers();
+	List<UserProfileDto> getAllUsers(Integer tenantId);
 }

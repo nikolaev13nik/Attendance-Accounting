@@ -285,4 +285,40 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL, null, null, null);
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
+
+    @Test
+    @FlywayTest
+    @DisplayName("GET /account/users?tenantId=100 as a non-admin returns only that tenant's users")
+    void getAllUsersByTenantIdTest() {
+        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL + "?tenantId=" + USER_TENANT_ID, null, USER_ID, USER_PWD);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        List<UserProfileDto> users = readList(response, UserProfileDto.class);
+        List<Integer> ids = users.stream().map(UserProfileDto::getIdUser).toList();
+        assertEquals(2, users.size());
+        assertTrue(ids.containsAll(List.of(ADMIN_ID, USER_ID)));
+        assertFalse(ids.contains(OTHER_USER_ID));
+        assertTrue(users.stream().allMatch(u -> USER_TENANT_ID.equals(u.getTenantId())));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("GET /account/users?tenantId=200 returns only that tenant's users")
+    void getAllUsersByOtherTenantIdTest() {
+        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL + "?tenantId=" + OTHER_USER_TENANT_ID, null, USER_ID, USER_PWD);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        List<UserProfileDto> users = readList(response, UserProfileDto.class);
+        assertEquals(1, users.size());
+        assertEquals(OTHER_USER_ID, users.get(0).getIdUser());
+        assertEquals(OTHER_USER_TENANT_ID, users.get(0).getTenantId());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("GET /account/users?tenantId=999 returns an empty list")
+    void getAllUsersUnknownTenantIdTest() {
+        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL + "?tenantId=999", null, USER_ID, USER_PWD);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        List<UserProfileDto> users = readList(response, UserProfileDto.class);
+        assertTrue(users.isEmpty());
+    }
 }

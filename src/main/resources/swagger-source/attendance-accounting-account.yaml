@@ -199,10 +199,18 @@ paths:
       operationId: getAllUsers
       tags:
         - Account
+      parameters:
+        - name: tenantId
+          in: query
+          description: |
+            When provided, only users belonging to this tenant are returned
+          required: false
+          type: integer
+          format: int32
       responses:
         '200':
           description: |
-            All user profiles
+            All user profiles, or users of the given tenant when tenantId is provided
           schema:
             type: array
             items:

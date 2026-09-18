@@ -51,8 +51,8 @@ public class UserAccountController implements AccountApi {
 	}
 
 	@Override
-	public ResponseEntity<List<UserProfileDto>> getAllUsers() {
-		return ResponseEntity.ok(userAccountService.getAllUsers());
+	public ResponseEntity<List<UserProfileDto>> getAllUsers(Integer tenantId) {
+		return ResponseEntity.ok(userAccountService.getAllUsers(tenantId));
 	}
 
 	@PostMapping("/account/login")
