@@ -100,13 +100,14 @@ public class SecurityConfiguration {
 		http.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
 		http.authorizeHttpRequests(auth -> auth
-				.requestMatchers(HttpMethod.DELETE, "/account/user/{idUser}").hasRole(ADMINISTRATOR_ROLE)
 				.requestMatchers(HttpMethod.POST, "/account/login").permitAll()
+				.requestMatchers(HttpMethod.POST, "/account/user").permitAll()
+				.requestMatchers(HttpMethod.DELETE, "/account/user/{idUser}").hasRole(ADMINISTRATOR_ROLE)
 				.requestMatchers(HttpMethod.POST, "/account/user/{idUser}/role/{role}").hasRole(ADMINISTRATOR_ROLE)
 				.requestMatchers(HttpMethod.DELETE, "/account/user/{idUser}/role/{role}").hasRole(ADMINISTRATOR_ROLE)
 				.requestMatchers(HttpMethod.PUT, "/account/user/password/{idUser}")
 						.access(authz.expression("@customWebSecurity.checkAuthorityChangePassword(#idUser, authentication) or hasRole('ADMINISTRATOR')"))
-				.anyRequest().permitAll()
+				.anyRequest().authenticated()
 		);
 
 		return http.build();

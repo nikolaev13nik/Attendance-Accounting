@@ -259,7 +259,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("GET /account/users returns the seeded users")
     void getAllUsersTest() {
-        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL, null, null, null);
+        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL, null, USER_ID, USER_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         List<UserProfileDto> users = readList(response, UserProfileDto.class);
         List<Integer> ids = users.stream().map(UserProfileDto::getIdUser).toList();
@@ -273,8 +273,16 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("GET /account/users never exposes the password field")
     void getAllUsersNoPasswordTest() {
-        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL, null, null, null);
+        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL, null, USER_ID, USER_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         json(response).forEach(node -> assertFalse(node.has("password"), "Reason: profile must not leak the password"));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("GET /account/users without a token returns 401 UNAUTHORIZED")
+    void getAllUsersUnauthorizedTest() {
+        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL, null, null, null);
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 }

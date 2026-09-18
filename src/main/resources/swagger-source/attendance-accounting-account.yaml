@@ -15,6 +15,16 @@ tags:
   - name: Account
     description: User account management
 
+securityDefinitions:
+  bearerAuth:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: JWT. Format `Bearer {token}` (obtained from POST /account/login).
+
+security:
+  - bearerAuth: []
+
 paths:
 
   /account/user:
@@ -23,6 +33,7 @@ paths:
       operationId: register
       tags:
         - Account
+      security: []
       parameters:
         - name: UserRegisterDto
           in: body
