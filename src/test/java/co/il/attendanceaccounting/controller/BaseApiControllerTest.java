@@ -1,6 +1,5 @@
 package co.il.attendanceaccounting.controller;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import co.il.attendanceaccounting.security.dto.LoginRequestDto;
@@ -22,10 +21,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import co.il.attendanceaccounting.dao.UserRepository;
-import co.il.attendanceaccounting.dao.UserTimeRepository;
 import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
-import co.il.attendanceaccounting.dto.EditDataTimeUserDto;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestExecutionListeners(
@@ -39,9 +36,6 @@ public abstract class BaseApiControllerTest {
 
     @Autowired
     protected UserRepository userRepository;
-
-    @Autowired
-    protected UserTimeRepository timeRepository;
 
     @Autowired
     protected ObjectMapper objectMapper;
@@ -179,11 +173,4 @@ public abstract class BaseApiControllerTest {
                 .build();
     }
 
-    protected EditDataTimeUserDto createEditDataTimeUserDto(Integer id, LocalDateTime start, LocalDateTime finish) {
-        return EditDataTimeUserDto.builder()
-                .id(id)
-                .start(start)
-                .finish(finish)
-                .build();
-    }
 }

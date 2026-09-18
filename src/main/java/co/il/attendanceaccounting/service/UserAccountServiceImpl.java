@@ -1,6 +1,5 @@
 package co.il.attendanceaccounting.service;
 
-import java.util.ArrayList;
 import java.util.List;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +36,6 @@ public class UserAccountServiceImpl implements UserAccountService {
 				.email(userRegisterDto.getEmail())
 				.tenantId(userRegisterDto.getTenantId())
 				.role("User")
-				.records(new ArrayList<>())
 				.build();
 		accountRepository.save(user);
 		return userToUserProfileDto(user);

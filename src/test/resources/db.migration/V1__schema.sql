@@ -16,21 +16,7 @@ CREATE TABLE user_roles (
                             UNIQUE (user_id_user, roles)
 );
 
--- create table hours (backs the DataTime entity, @Table(name = "hours"))
-CREATE TABLE hours (
-                       id INTEGER NOT NULL,
-                       id_user INTEGER,
-                       date DATE,
-                       start TIMESTAMP,
-                       finish TIMESTAMP,
-                       PRIMARY KEY (id)
-);
-
 -- alter tables to add constraints
 ALTER TABLE IF EXISTS user_roles
     ADD CONSTRAINT fk_user_roles_user
     FOREIGN KEY (user_id_user) REFERENCES users(id_user);
-
-ALTER TABLE IF EXISTS hours
-    ADD CONSTRAINT fk_hours_user
-    FOREIGN KEY (id_user) REFERENCES users(id_user);

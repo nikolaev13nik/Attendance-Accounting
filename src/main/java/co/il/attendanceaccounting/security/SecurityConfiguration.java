@@ -100,13 +100,6 @@ public class SecurityConfiguration {
 		http.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
 		http.authorizeHttpRequests(auth -> auth
-				.requestMatchers(HttpMethod.GET, "/record/**").hasRole(ADMINISTRATOR_ROLE)
-				.requestMatchers(HttpMethod.PUT, "/record/start/{idUser}")
-						.access(authz.expression("@customWebSecurity.checkStartFinishRecords(#idUser, authentication) or hasRole('ADMINISTRATOR')"))
-				.requestMatchers(HttpMethod.PUT, "/record/finish/{idUser}")
-						.access(authz.expression("@customWebSecurity.checkStartFinishRecords(#idUser, authentication) or hasRole('ADMINISTRATOR')"))
-				.requestMatchers(HttpMethod.POST, "/record").hasRole(ADMINISTRATOR_ROLE)
-				.requestMatchers(HttpMethod.DELETE, "/record/remove/{id}").hasRole(ADMINISTRATOR_ROLE)
 				.requestMatchers(HttpMethod.DELETE, "/account/user/{idUser}").hasRole(ADMINISTRATOR_ROLE)
 				.requestMatchers(HttpMethod.POST, "/account/login").permitAll()
 				.requestMatchers(HttpMethod.POST, "/account/user/{idUser}/role/{role}").hasRole(ADMINISTRATOR_ROLE)

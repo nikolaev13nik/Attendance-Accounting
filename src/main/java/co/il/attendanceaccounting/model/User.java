@@ -1,14 +1,11 @@
 package co.il.attendanceaccounting.model;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.*;
 
@@ -32,9 +29,6 @@ public class User {
 	@Column(nullable = false)
 	private Integer tenantId;
 
-	@OneToMany(mappedBy = "user")
-	private List<DataTime> records;
-
 	@Singular
 	@ElementCollection(fetch = FetchType.EAGER)
 	Set<String> roles;
@@ -47,14 +41,4 @@ public class User {
 		return roles.remove(role);
 	}
 
-	public User(Integer idUser, String firstName, String lastName, String password, String email, Integer tenantId, Set<String> roles) {
-		this.idUser = idUser;
-		this.firstName = firstName;
-		this.lastName = lastName;
-		this.password = password;
-		this.email = email;
-		this.tenantId = tenantId;
-		this.roles = roles;
-		this.records = new ArrayList<>();
-	}
 }
