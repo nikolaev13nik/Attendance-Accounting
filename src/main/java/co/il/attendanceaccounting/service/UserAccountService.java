@@ -26,4 +26,6 @@ public interface UserAccountService {
 	UserProfileDto removeRole(Integer idUser, String role);
 
 	List<UserProfileDto> getAllUsers(Integer tenantId);
+
+	UserProfileDto getUser(Integer tenantId, Integer idUser);
 }

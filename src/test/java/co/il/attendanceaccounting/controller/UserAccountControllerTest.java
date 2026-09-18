@@ -321,4 +321,49 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         List<UserProfileDto> users = readList(response, UserProfileDto.class);
         assertTrue(users.isEmpty());
     }
+
+    @Test
+    @FlywayTest
+    @DisplayName("GET /account/tenant/{tenantId}/userId/{idUser} returns the matching user")
+    void getUserByTenantAndIdTest() {
+        ResponseEntity<String> response = send(HttpMethod.GET, userByTenantUrl(USER_TENANT_ID, USER_ID), null, USER_ID, USER_PWD);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        UserProfileDto body = readObject(response, UserProfileDto.class);
+        assertEquals(USER_ID, body.getIdUser().intValue());
+        assertEquals("John", body.getFirstName());
+        assertEquals("Doe", body.getLastName());
+        assertEquals(USER_EMAIL, body.getEmail());
+        assertEquals(USER_TENANT_ID, body.getTenantId());
+        assertTrue(body.getRoles().contains("User"));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("GET /account/tenant/{tenantId}/userId/{idUser} with a mismatched tenant returns 400")
+    void getUserByTenantAndIdWrongTenantTest() {
+        ResponseEntity<String> response = send(HttpMethod.GET, userByTenantUrl(OTHER_USER_TENANT_ID, USER_ID), null, USER_ID, USER_PWD);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("User with login = " + USER_ID + " not found", errorMessage(response));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("GET /account/tenant/{tenantId}/userId/{idUser} for a missing user returns 400")
+    void getUserByTenantAndIdMissingTest() {
+        ResponseEntity<String> response = send(HttpMethod.GET, userByTenantUrl(USER_TENANT_ID, 987654), null, USER_ID, USER_PWD);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("User with login = 987654 not found", errorMessage(response));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("GET /account/tenant/{tenantId}/userId/{idUser} without a token returns 401 UNAUTHORIZED")
+    void getUserByTenantAndIdUnauthorizedTest() {
+        ResponseEntity<String> response = send(HttpMethod.GET, userByTenantUrl(USER_TENANT_ID, USER_ID), null, null, null);
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    }
+
+    private String userByTenantUrl(Integer tenantId, Integer idUser) {
+        return ACCOUNT_URL + "/tenant/" + tenantId + "/userId/" + idUser;
+    }
 }

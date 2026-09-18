@@ -32,6 +32,8 @@ import java.nio.charset.StandardCharsets;
 
 import javax.crypto.spec.SecretKeySpec;
 
+import jakarta.servlet.DispatcherType;
+
 import static co.il.attendanceaccounting.security.SecurityConstants.AUTHORITIES;
 
 @Configuration
@@ -100,6 +102,7 @@ public class SecurityConfiguration {
 		http.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
 		http.authorizeHttpRequests(auth -> auth
+				.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
 				.requestMatchers(HttpMethod.POST, "/account/login").permitAll()
 				.requestMatchers(HttpMethod.POST, "/account/user").permitAll()
 				.requestMatchers(HttpMethod.DELETE, "/account/user/{idUser}").hasRole(ADMINISTRATOR_ROLE)

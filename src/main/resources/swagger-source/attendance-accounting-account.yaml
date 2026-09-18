@@ -220,6 +220,42 @@ paths:
         '500':
           $ref: '#/responses/500-InternalServerError'
 
+  /account/tenant/{tenantId}/userId/{idUser}:
+    get:
+      summary: Gets a user by tenant and user ID
+      operationId: getUser
+      tags:
+        - Account
+      parameters:
+        - name: tenantId
+          in: path
+          description: |
+            Identifier of the tenant the user belongs to
+          required: true
+          type: integer
+          format: int32
+          minimum: 1
+        - name: idUser
+          in: path
+          description: |
+            Unique identifier of the user
+          required: true
+          type: integer
+          format: int32
+          minimum: 1
+      responses:
+        '200':
+          description: |
+            User profile belonging to the given tenant
+          schema:
+            $ref: '#/definitions/UserProfileDto'
+        '400':
+          $ref: '#/responses/400-BadRequest'
+        '401':
+          $ref: '#/responses/401-Unauthorized'
+        '500':
+          $ref: '#/responses/500-InternalServerError'
+
 
 definitions:
 

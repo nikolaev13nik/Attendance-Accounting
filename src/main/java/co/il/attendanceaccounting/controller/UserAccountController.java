@@ -55,6 +55,11 @@ public class UserAccountController implements AccountApi {
 		return ResponseEntity.ok(userAccountService.getAllUsers(tenantId));
 	}
 
+	@Override
+	public ResponseEntity<UserProfileDto> getUser(Integer tenantId, Integer idUser) {
+		return ResponseEntity.ok(userAccountService.getUser(tenantId, idUser));
+	}
+
 	@PostMapping("/account/login")
 	public ResponseEntity<LoginResponseDto> login(@RequestBody(required = false)LoginRequestDto request) {
 		LoginResponseDto response = authenticationService.authenticate(request);

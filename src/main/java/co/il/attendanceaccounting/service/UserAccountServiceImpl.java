@@ -124,4 +124,11 @@ public class UserAccountServiceImpl implements UserAccountService {
 				: accountRepository.findByTenantId(tenantId);
 		return listUsers.stream().map(this::userToUserProfileDto).toList();
 	}
+
+	@Override
+	public UserProfileDto getUser(Integer tenantId, Integer idUser) {
+		User user = accountRepository.findByIdUserAndTenantId(idUser, tenantId)
+				.orElseThrow(() -> new UserNotFoundException(idUser.toString()));
+		return userToUserProfileDto(user);
+	}
 }
