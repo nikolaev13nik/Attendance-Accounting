@@ -24,6 +24,7 @@ claims. Coordinate any such change across repos.
 ./mvnw test                       # run all tests
 ./mvnw test -Dtest=UserAccountControllerTest                      # run one test class
 ./mvnw test -Dtest=UserAccountControllerTest#registerNewUserTest  # single test method
+./mvnw clean verify -Pci          # what CI runs: build + tests + JaCoCo coverage check (min 85% line coverage)
 ./mvnw spring-boot:run            # run locally (H2 file DB at ./data/attendance-accounting)
 ```
 
@@ -31,9 +32,14 @@ Requires env var `ATTENDANCE_ACCOUNTING_JWT_SECRET` — the HMAC signing secret,
 the context fails to start (`SecurityConfiguration.jwtSecretKey`). Tests supply their own via
 `src/test/resources/application.properties`.
 
-There is no linter/formatter, no CI workflow, no Dockerfile and no coverage gate in this repo (the shared
-IntelliJ Google-style config lives in `../attendance-project-common/sharedFiles/`). `Attendance-TimeTracking`
-has all four — copy from there if asked to add them, rather than inventing a different setup.
+The JaCoCo threshold is a real gate: `-Pci` fails the build under 85% line coverage (bundle-wide,
+generated sources and the boot entrypoint excluded — see the `<excludes>` in the `ci` profile). New
+production code needs tests in the same change, or CI goes red. `.github/workflows/ci.yml` then builds and
+pushes a Docker image to GHCR and tags the version on `main`; it mirrors `Attendance-TimeTracking`'s
+workflow step for step, so keep the two in sync rather than letting them drift.
+
+There is no linter/formatter configured in this repo (the shared IntelliJ Google-style config lives in
+`../attendance-project-common/sharedFiles/`).
 
 ## Architecture
 
