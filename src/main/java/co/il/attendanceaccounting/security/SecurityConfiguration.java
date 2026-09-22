@@ -103,6 +103,7 @@ public class SecurityConfiguration {
 
 		http.authorizeHttpRequests(auth -> auth
 				.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+				.requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
 				.requestMatchers(HttpMethod.POST, "/account/login").permitAll()
 				.requestMatchers(HttpMethod.POST, "/account/user").permitAll()
 				.requestMatchers(HttpMethod.DELETE, "/account/user/{idUser}").hasRole(ADMINISTRATOR_ROLE)
