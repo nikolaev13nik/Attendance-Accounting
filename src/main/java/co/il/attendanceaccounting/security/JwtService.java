@@ -22,7 +22,7 @@ public class JwtService {
     private final long ttlSeconds;
 
     public JwtService(JwtEncoder jwtEncoder,
-                      @Value("${attendance-accounting.security.jwt.ttl-seconds}") long ttlSeconds) {
+                      @Value("${attendance-accounting.security.jwt.ttl-seconds:3600}") long ttlSeconds) {
         this.jwtEncoder = jwtEncoder;
         this.ttlSeconds = ttlSeconds;
     }
