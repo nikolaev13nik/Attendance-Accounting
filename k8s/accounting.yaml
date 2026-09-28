@@ -29,7 +29,7 @@ spec:
           # Built and pushed by THIS repo's .github/workflows/ci.yml on every push to
           # main, which also creates the matching git tag. The cluster pulls it;
           # nothing is built on your Mac. That is how every real deployment works.
-          image: ghcr.io/nikolaev13nik/attendance-accounting:1.0.1
+          image: ghcr.io/nikolaev13nik/attendance-accounting:1.0.3
 
           imagePullPolicy: IfNotPresent   # pull only if not already in the node's image store.
             # Safe because this tag is immutable in practice - a new

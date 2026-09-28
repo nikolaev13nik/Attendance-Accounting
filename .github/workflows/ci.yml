@@ -3,6 +3,16 @@ name: CI
 on:
   push:
     branches: [ "main" ]
+    # Deployment descriptors and docs do not change the application, so they must
+    # not build a new image or mint a new version tag. Without this, editing
+    # k8s/accounting.yaml to point at version N produces version N+1, and the
+    # manifest can never catch up.
+    # Note: this skips the run only when EVERY changed file matches. A commit
+    # touching both src/ and k8s/ still builds, which is correct.
+    paths-ignore:
+      - 'k8s/**'
+      - 'helm/**'
+      - '**.md'
 
   pull_request:
     branches: [ "main" ]
