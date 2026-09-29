@@ -1,0 +1,114 @@
+# DEFAULT values for the accounting chart.
+#
+# Defaults describe the LOCAL k3s setup, so `helm install` with no extra flags
+# reproduces what the raw k8s/accounting.yaml manifest used to do.
+#
+# Precedence, lowest to highest:
+#   this file  <  -f values-<env>.yaml  <  --set key=value
+
+namespace: attendance          # created by the platform, never by this chart
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/nikolaev13nik/attendance-accounting
+
+  # EMPTY ON PURPOSE. The template falls back to Chart.yaml's appVersion when this
+  # is blank, which is the standard Helm idiom:
+  #
+  #   {{ .Values.image.tag | default .Chart.AppVersion }}
+  #
+  # That gives two ways to choose a version, for two different situations:
+  #   - bump appVersion in Chart.yaml  -> the committed, reviewable default
+  #   - --set image.tag=1.0.5          -> a deploy-time decision, wins over the above
+  #
+  # The second is what closes the CI loop: the pipeline passes the version it just
+  # built, so no file in git has to be edited after every release, so pushing a
+  # deploy does not trigger another build.
+  tag: ""
+
+  # IfNotPresent, not Always: these tags are immutable in practice - CI mints a new
+  # version per build and never reuses one. Always is only needed for mutable tags
+  # like :latest, which are better avoided entirely.
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8080                   # http://accounting:8080 from inside the cluster
+  targetPort: 8080
+
+# Names owned by the PLATFORM chart. This service only consumes them - it must
+# never create them. Changing either here means changing it there too.
+config:
+  name: attendance-config
+secret:
+  name: attendance-secrets
+
+database:
+  name: attendance             # one database, one schema per service
+  schema: accounting
+  username: accounting_user    # restricted: GRANTed only on the accounting schema
+  passwordKey: ACCOUNTING_DB_PASSWORD   # which key of the Secret to read
+
+# The key holding the shared HMAC signing secret. TimeTracking reads the SAME key
+# into the SAME env var name - that identity is what makes a token minted here
+# valid there.
+jwtSecretKey: JWT_SECRET
+
+# How long a minted token stays valid. EMPTY means "don't set the variable at all",
+# so the application's own @Value default (3600) applies - the image stays the
+# single source of truth for the default, and bumping it in code actually takes
+# effect. Set a number here only to deviate deliberately:
+#
+#   helm upgrade ... --set jwtTtlSeconds=7200
+#
+# Changing this rewrites the pod template, so Kubernetes rolls the pods
+# automatically. No rebuild, no new image, no CI run.
+jwtTtlSeconds: ""
+
+bootstrapAdmin:
+  # An identifier, not a secret: it appears in URLs, logs and the JWT `sub` claim.
+  # Must match what the application's own default expects, or an existing admin
+  # row stops being recognised and a second one gets created.
+  #
+  # QUOTED, and it matters. Unquoted, YAML reads this as a NUMBER and `| quote`
+  # renders it as "1.23456789e+08", which the int-typed @Value cannot parse - the
+  # pod fails to start with a confusing error. Quote anything that looks numeric.
+  id: "123456789"
+  # Only the KEY NAME lives here. The value is in the Secret, which this chart
+  # deliberately does not create - see the platform chart's README.
+  passwordKey: BOOTSTRAP_ADMIN_PASSWORD
+
+# Java 10+ reads the cgroup memory limit rather than the host's, so 75% of the
+# LIMIT below becomes the max heap and it rescales automatically if you change it.
+javaToolOptions: "-XX:MaxRAMPercentage=75"
+
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 200m
+  limits:
+    memory: 1Gi                # MaxRAMPercentage=75 -> ~768Mi max heap
+    cpu: 1000m
+
+# Zero-downtime by construction: bring the new pod up and let it pass readiness
+# BEFORE removing the old one. Safe because the service is stateless.
+strategy:
+  maxSurge: 1
+  maxUnavailable: 0
+
+probes:
+  path: /actuator/health
+  # "Has it finished booting?" While this runs, readiness and liveness are disabled,
+  # which is what stops a slow Spring Boot start from being mistaken for a failure.
+  startup:
+    periodSeconds: 5
+    failureThreshold: 36       # 36 x 5s = up to 180s to start
+  # "Can it serve traffic?" Failing removes the pod from the Service's endpoints.
+  readiness:
+    periodSeconds: 10
+    failureThreshold: 3
+  # "Is it broken?" Failing RESTARTS the container, so it must be slower and more
+  # forgiving than readiness or it will kill pods that are merely busy.
+  liveness:
+    periodSeconds: 30
+    failureThreshold: 3        # 3 x 30s = 90s before a restart

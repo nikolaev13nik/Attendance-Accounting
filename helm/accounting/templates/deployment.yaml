@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: accounting
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+
+  strategy:
+    type: RollingUpdate            # stateless -> old and new may briefly run together
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.maxSurge }}
+      maxUnavailable: {{ .Values.strategy.maxUnavailable }}
+
+  selector:
+    matchLabels:
+      app: accounting
+  template:
+    metadata:
+      labels:
+        app: accounting
+    spec:
+      containers:
+        - name: accounting
+
+          {{- /* tag falls back to Chart.yaml's appVersion when image.tag is empty.
+                 --set image.tag=1.0.5 overrides both - that is the CD path. */}}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - containerPort: {{ .Values.service.targetPort }}
+
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: {{ .Values.javaToolOptions | quote }}
+
+            {{- /* Pulled from the platform ConfigMap one key at a time rather than
+                   with envFrom, so it is visible here exactly which values this
+                   service consumes. */}}
+            - name: POSTGRES_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.config.name }}
+                  key: POSTGRES_HOST
+            - name: POSTGRES_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.config.name }}
+                  key: POSTGRES_PORT
+            - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.config.name }}
+                  key: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+            - name: SPRING_JPA_DATABASE_PLATFORM
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.config.name }}
+                  key: SPRING_JPA_DATABASE_PLATFORM
+
+            {{- /* $(VAR) is expanded by KUBERNETES, not by Helm and not by the shell.
+                   It only sees variables defined EARLIER in this same list, which is
+                   why the two above must stay above this one. A literal
+                   "$(POSTGRES_HOST)" in the JDBC URL in the logs means it failed. */}}
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://$(POSTGRES_HOST):$(POSTGRES_PORT)/{{ .Values.database.name }}?currentSchema={{ .Values.database.schema }}"
+
+            - name: SPRING_DATASOURCE_USERNAME
+              value: {{ .Values.database.username | quote }}
+
+            {{- /* From the Secret, one key at a time - deliberately NOT
+                   `envFrom: secretRef`, which would inject all four keys including
+                   TimeTracking's database password. Least privilege. */}}
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secret.name }}
+                  key: {{ .Values.database.passwordKey }}
+
+            - name: ATTENDANCE_ACCOUNTING_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secret.name }}
+                  key: {{ .Values.jwtSecretKey }}
+
+            {{- /* Emitted only when set. Absent means the application's own default
+                   applies, so the image keeps owning the default rather than this
+                   file silently pinning a copy of it. Same `with` idiom as the
+                   platform chart's storageClass and ingress annotations. */}}
+            {{- with .Values.jwtTtlSeconds }}
+            - name: ATTENDANCE_ACCOUNTING_SECURITY_JWT_TTL_SECONDS
+              value: {{ . | quote }}
+            {{- end }}
+
+            {{- /* The bootstrap super-admin. The id is a plain value because it is an
+                   identifier, not a credential - it shows up in URLs and JWT claims
+                   anyway. The password is a secretKeyRef and never a plain `value:`,
+                   because `kubectl describe pod` prints plain values in cleartext.
+
+                   The application requires the password on EVERY start, so a missing
+                   key here is not a silent no-op: the container fails with an
+                   IllegalStateException naming the variable. */}}
+            - name: ATTENDANCE_ACCOUNTING_BOOTSTRAP_ADMIN_ID
+              value: {{ .Values.bootstrapAdmin.id | quote }}
+            - name: ATTENDANCE_ACCOUNTING_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secret.name }}
+                  key: {{ .Values.bootstrapAdmin.passwordKey }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          {{- /* Three probes, three different jobs - see values.yaml. */}}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.path }}
+              port: {{ .Values.service.targetPort }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.path }}
+              port: {{ .Values.service.targetPort }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.path }}
+              port: {{ .Values.service.targetPort }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}

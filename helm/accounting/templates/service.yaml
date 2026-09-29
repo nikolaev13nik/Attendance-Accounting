@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  # NOT parameterised on purpose. This name is a CONTRACT: it is what the platform
+  # ConfigMap's ATTENDANCE_ACCOUNTING_BASE_URL points at (http://accounting:8080)
+  # and what the platform Ingress routes /account to. Renaming it here silently
+  # breaks TimeTracking's outbound calls and the Ingress, in two other repos.
+  name: accounting
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP                  # in-cluster only; the Ingress is the way in
+  selector:
+    app: accounting                # matches the pod label in deployment.yaml
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}

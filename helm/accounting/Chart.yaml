@@ -1,0 +1,15 @@
+apiVersion: v2
+name: accounting
+description: The JWT-issuing Accounting service. Depends on the attendance-platform chart.
+type: application
+
+# version = the CHART's own version. Bump it when you change templates or values,
+# independently of the application.
+version: 0.1.0
+
+# appVersion = the default APPLICATION version, i.e. the image tag used when
+# nothing overrides it. Quoted, because 1.0.4 unquoted is not a valid YAML string.
+#
+# This is the "committed" answer to which version is deployed. The deploy-time
+# answer is --set image.tag=..., which wins over it. See values.yaml.
+appVersion: "1.0.4"
