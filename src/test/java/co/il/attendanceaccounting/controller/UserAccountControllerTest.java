@@ -41,7 +41,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals("User", body.getLastName());
         assertEquals("new.user@example.com", body.getEmail());
         assertEquals(NEW_TENANT_ID, body.getTenantId());
-        assertTrue(body.getRoles().contains("User"), "Reason: new user gets the default 'User' role");
+        assertTrue(body.getRoles().contains("USER"), "Reason: new user gets the default 'USER' role");
         assertEquals(1, body.getRoles().size());
         assertTrue(userRepository.existsById(99));
         assertEquals("new.user@example.com", userRepository.findById(99).orElseThrow().getEmail());
