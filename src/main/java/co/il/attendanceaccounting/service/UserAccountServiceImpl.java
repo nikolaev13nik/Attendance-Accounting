@@ -1,26 +1,33 @@
 package co.il.attendanceaccounting.service;
 
-import java.util.List;
-import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
 import co.il.attendanceaccounting.dao.UserRepository;
 import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
+import co.il.attendanceaccounting.exceptions.ProtectedUserException;
 import co.il.attendanceaccounting.exceptions.UserExistsException;
 import co.il.attendanceaccounting.exceptions.UserNotFoundException;
 import co.il.attendanceaccounting.model.User;
+import jakarta.transaction.Transactional;
+
+import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.USER;
 
 @Service
 public class UserAccountServiceImpl implements UserAccountService {
 
 	@Autowired
 	UserRepository accountRepository;
-
 	@Autowired
 	PasswordEncoder passwordEncoder;
+	@Value("${attendance-accounting.bootstrap.admin.id:123456789}")
+	private int protectedAdminId;
 
 	@Override
 	public UserProfileDto register(UserRegisterDto userRegisterDto) {
@@ -35,7 +42,7 @@ public class UserAccountServiceImpl implements UserAccountService {
 				.lastName(userRegisterDto.getLastName())
 				.email(userRegisterDto.getEmail())
 				.tenantId(userRegisterDto.getTenantId())
-				.role("User")
+				.role(USER.name())
 				.build();
 		accountRepository.save(user);
 		return userToUserProfileDto(user);
@@ -82,6 +89,9 @@ public class UserAccountServiceImpl implements UserAccountService {
 	@Transactional
 	@Override
 	public UserProfileDto removeUser(Integer idUser) {
+		if (idUser != null && idUser == protectedAdminId) {
+			throw new ProtectedUserException();
+		}
 		User userAccount = accountRepository.findById(idUser)
 				.orElseThrow(() -> new UserNotFoundException(idUser.toString()));
 		accountRepository.deleteById(idUser);

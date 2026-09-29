@@ -1,20 +1,21 @@
 package co.il.attendanceaccounting.controller;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.util.List;
-
-import co.il.attendanceaccounting.security.dto.LoginRequestDto;
-import co.il.attendanceaccounting.security.dto.LoginResponseDto;
 import org.flywaydb.test.annotation.FlywayTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+
+import java.util.List;
+
 import co.il.attendanceaccounting.dto.UserProfileDto;
+import co.il.attendanceaccounting.security.dto.LoginRequestDto;
+import co.il.attendanceaccounting.security.dto.LoginResponseDto;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UserAccountControllerTest extends BaseApiControllerTest {
 
@@ -25,6 +26,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     private static final String USERS_URL = ACCOUNT_URL + "/users";
     private static final String ROLE_URL = "/role/";
     private static final Integer NEW_TENANT_ID = 300;
+    private static final Integer PROTECTED_ADMIN_ID = 123456789;
+    private static final String PROTECTED_MESSAGE = "user is protected and cannot be deleted";
 
     @Test
     @FlywayTest
@@ -169,6 +172,44 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         ResponseEntity<String> response = send(HttpMethod.DELETE, USER_URL + "/987654", null, ADMIN_ID, ADMIN_PWD);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals("User with login = 987654 not found", errorMessage(response));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/user/{id} for the bootstrap super-admin returns 403 even as admin, and 403 not 400 when absent")
+    void deleteProtectedAdminTest() {
+        ResponseEntity<String> response = send(HttpMethod.DELETE, USER_URL + "/" + PROTECTED_ADMIN_ID, null, ADMIN_ID,
+                ADMIN_PWD);
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode(),
+                "Reason: the protected id is rejected before the existence lookup, so the response never reveals whether the super-admin exists");
+        assertEquals(PROTECTED_MESSAGE, errorMessage(response));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/user/{id} for the bootstrap super-admin keeps the existing row")
+    void deleteProtectedAdminKeepsRowTest() {
+        ResponseEntity<String> created = send(HttpMethod.POST, USER_URL,
+                createUserRegisterDto(PROTECTED_ADMIN_ID, "pw", "Super", "Admin", "super.admin@example.com",
+                        NEW_TENANT_ID), null, null);
+        assertEquals(HttpStatus.CREATED, created.getStatusCode());
+
+        ResponseEntity<String> response = send(HttpMethod.DELETE, USER_URL + "/" + PROTECTED_ADMIN_ID, null, ADMIN_ID,
+                ADMIN_PWD);
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals(PROTECTED_MESSAGE, errorMessage(response));
+        assertTrue(userRepository.existsById(PROTECTED_ADMIN_ID),
+                "Reason: the protected user must survive a delete attempt, so the startup bootstrap never recreates it");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/user/{id} still removes an ordinary user when a protected id exists")
+    void deleteOrdinaryUserStillWorksTest() {
+        ResponseEntity<String> response = send(HttpMethod.DELETE, USER_URL + "/" + USER_ID, null, ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertFalse(userRepository.existsById(USER_ID),
+                "Reason: protection must apply to the configured id only, not to deletion in general");
     }
 
     @Test
