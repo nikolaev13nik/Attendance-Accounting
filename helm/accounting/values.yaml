@@ -63,7 +63,7 @@ jwtSecretKey: JWT_SECRET
 #
 # Changing this rewrites the pod template, so Kubernetes rolls the pods
 # automatically. No rebuild, no new image, no CI run.
-jwtTtlSeconds: ""
+jwtTtlSeconds: "14400"
 
 bootstrapAdmin:
   # An identifier, not a secret: it appears in URLs, logs and the JWT `sub` claim.

@@ -5,7 +5,7 @@ type: application
 
 # version = the CHART's own version. Bump it when you change templates or values,
 # independently of the application.
-version: 0.1.0
+version: 0.2.0
 
 # appVersion = the default APPLICATION version, i.e. the image tag used when
 # nothing overrides it. Quoted, because 1.0.4 unquoted is not a valid YAML string.
