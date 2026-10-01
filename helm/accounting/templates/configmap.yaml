@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: accounting-config
+  namespace: {{ .Values.namespace }}
+data:
+  {{- with .Values.jwtTtlSeconds }}
+  ATTENDANCE_ACCOUNTING_SECURITY_JWT_TTL_SECONDS: {{ . | quote }}
+  {{- end }}

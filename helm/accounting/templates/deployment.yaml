@@ -74,7 +74,10 @@ spec:
 
             {{- with .Values.jwtTtlSeconds }}
             - name: ATTENDANCE_ACCOUNTING_SECURITY_JWT_TTL_SECONDS
-              value: {{ . | quote }}
+              valueFrom:
+                configMapKeyRef:
+                  name: accounting-config
+                  key: ATTENDANCE_ACCOUNTING_SECURITY_JWT_TTL_SECONDS
             {{- end }}
 
             - name: ATTENDANCE_ACCOUNTING_BOOTSTRAP_ADMIN_ID
