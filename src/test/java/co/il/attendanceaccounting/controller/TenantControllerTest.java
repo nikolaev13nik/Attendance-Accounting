@@ -12,6 +12,7 @@ import co.il.attendanceaccounting.model.TenantMapping;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -21,13 +22,14 @@ class TenantControllerTest extends BaseApiControllerTest {
     private static final Integer NEW_TENANT_ID = 400;
     private static final String NEW_TENANT_NAME = "Initrode";
     private static final String NEW_TENANT_EMAIL = "admin@initrode.local";
+    private static final Integer SECOND_TENANT_ID = 402;
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/tenant/add as an authenticated user adds the tenant and persists it")
+    @DisplayName("POST /account/tenant/add without any credentials (public) adds the tenant and persists it")
     void addTenantTest() {
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, NEW_TENANT_EMAIL), USER_ID, USER_PWD);
+                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, NEW_TENANT_EMAIL), null, null);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         TenantMappingDto body = readObject(response, TenantMappingDto.class);
         assertEquals(NEW_TENANT_ID, body.getTenantId());
@@ -47,7 +49,7 @@ class TenantControllerTest extends BaseApiControllerTest {
     void addExistingTenantTest() {
         long before = tenantMappingRepository.count();
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(TENANT_ID_100, "Acme Renamed", "other@acme.local"), USER_ID, USER_PWD);
+                createTenantAddDto(TENANT_ID_100, "Acme Renamed", "other@acme.local"), null, null);
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         assertEquals("tenant exists", errorMessage(response));
         assertEquals(before, tenantMappingRepository.count(), "Reason: no tenant should be added");
@@ -57,14 +59,15 @@ class TenantControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/tenant/add without a token returns 401 UNAUTHORIZED")
-    void addTenantUnauthorizedTest() {
-        long before = tenantMappingRepository.count();
+    @DisplayName("POST /account/tenant/add is never rejected as unauthenticated")
+    void addTenantNeedsNoAuthenticationTest() {
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, NEW_TENANT_EMAIL), null, null);
-        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-        assertEquals(before, tenantMappingRepository.count(), "Reason: no tenant should be added");
-        assertFalse(tenantMappingRepository.existsById(NEW_TENANT_ID));
+                createTenantAddDto(SECOND_TENANT_ID, "Vandelay Industries", "admin@vandelay.local"), null, null);
+        assertNotEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode(),
+                "Reason: the endpoint is permitAll, so no JWT may ever be demanded");
+        assertNotEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertTrue(tenantMappingRepository.existsById(SECOND_TENANT_ID));
     }
 
     @Test
@@ -73,7 +76,7 @@ class TenantControllerTest extends BaseApiControllerTest {
     void addTenantMissingTenantIdTest() {
         long before = tenantMappingRepository.count();
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(null, NEW_TENANT_NAME, NEW_TENANT_EMAIL), USER_ID, USER_PWD);
+                createTenantAddDto(null, NEW_TENANT_NAME, NEW_TENANT_EMAIL), null, null);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(before, tenantMappingRepository.count(), "Reason: no tenant should be added");
     }
@@ -84,7 +87,7 @@ class TenantControllerTest extends BaseApiControllerTest {
     void addTenantMissingTenantNameTest() {
         long before = tenantMappingRepository.count();
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(NEW_TENANT_ID, null, NEW_TENANT_EMAIL), USER_ID, USER_PWD);
+                createTenantAddDto(NEW_TENANT_ID, null, NEW_TENANT_EMAIL), null, null);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(before, tenantMappingRepository.count(), "Reason: no tenant should be added");
         assertFalse(tenantMappingRepository.existsById(NEW_TENANT_ID));
@@ -96,7 +99,7 @@ class TenantControllerTest extends BaseApiControllerTest {
     void addTenantMissingEmailTest() {
         long before = tenantMappingRepository.count();
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, null), USER_ID, USER_PWD);
+                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, null), null, null);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(before, tenantMappingRepository.count(), "Reason: no tenant should be added");
         assertFalse(tenantMappingRepository.existsById(NEW_TENANT_ID));
@@ -108,7 +111,7 @@ class TenantControllerTest extends BaseApiControllerTest {
     void addTenantInvalidEmailTest() {
         long before = tenantMappingRepository.count();
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, "not-an-email"), USER_ID, USER_PWD);
+                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, "not-an-email"), null, null);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(before, tenantMappingRepository.count(), "Reason: no tenant should be added");
         assertFalse(tenantMappingRepository.existsById(NEW_TENANT_ID));
@@ -119,7 +122,7 @@ class TenantControllerTest extends BaseApiControllerTest {
     @DisplayName("POST /account/tenant/add keeps the seeded tenants readable")
     void addTenantKeepsSeededTenantsTest() {
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, NEW_TENANT_EMAIL), USER_ID, USER_PWD);
+                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, NEW_TENANT_EMAIL), null, null);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         TenantMapping seeded = tenantMappingRepository.findById(TENANT_ID_100).orElseThrow();
         assertEquals(TENANT_100_NAME, seeded.getTenantName());

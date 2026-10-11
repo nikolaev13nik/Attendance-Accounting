@@ -106,6 +106,7 @@ public class SecurityConfiguration {
 				.requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
 				.requestMatchers(HttpMethod.POST, "/account/login").permitAll()
 				.requestMatchers(HttpMethod.POST, "/account/user").permitAll()
+				.requestMatchers(HttpMethod.POST, "/account/tenant/add").permitAll()
 				.requestMatchers(HttpMethod.DELETE, "/account/user/{idUser}").hasRole(ADMINISTRATOR_ROLE)
 				.requestMatchers(HttpMethod.POST, "/account/user/{idUser}/role/{role}").hasRole(ADMINISTRATOR_ROLE)
 				.requestMatchers(HttpMethod.DELETE, "/account/user/{idUser}/role/{role}").hasRole(ADMINISTRATOR_ROLE)

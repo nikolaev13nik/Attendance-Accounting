@@ -226,6 +226,7 @@ paths:
       operationId: addTenant
       tags:
         - Account
+      security: [ ]
       parameters:
         - name: TenantAddDto
           in: body
@@ -242,8 +243,6 @@ paths:
             $ref: '#/definitions/TenantMappingDto'
         '400':
           $ref: '#/responses/400-BadRequest'
-        '401':
-          $ref: '#/responses/401-Unauthorized'
         '409':
           $ref: '#/responses/409-Conflict'
         '500':

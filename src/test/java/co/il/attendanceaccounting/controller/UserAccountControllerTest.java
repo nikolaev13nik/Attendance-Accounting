@@ -122,7 +122,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("POST /account/user succeeds in a tenant added through POST /account/tenant/add")
     void registerAfterAddingTenantTest() {
-        ResponseEntity<String> tenantResponse = send(HttpMethod.POST, TENANT_ADD_URL, createTenantAddDto(ADDED_TENANT_ID, "Initrode", "admin@initrode.local"), USER_ID, USER_PWD);
+        ResponseEntity<String> tenantResponse = send(HttpMethod.POST, TENANT_ADD_URL,
+                createTenantAddDto(ADDED_TENANT_ID, "Initrode", "admin@initrode.local"), null, null);
         assertEquals(HttpStatus.CREATED, tenantResponse.getStatusCode());
 
         ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(93, "pw", "New", "User", "new.user5@example.com", ADDED_TENANT_ID), null, null);
