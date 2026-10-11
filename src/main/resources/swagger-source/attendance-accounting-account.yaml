@@ -220,6 +220,35 @@ paths:
         '500':
           $ref: '#/responses/500-InternalServerError'
 
+  /account/tenant/add:
+    post:
+      summary: Adds a tenant mapping
+      operationId: addTenant
+      tags:
+        - Account
+      parameters:
+        - name: TenantAddDto
+          in: body
+          description: |
+            Details of the tenant to add
+          required: true
+          schema:
+            $ref: '#/definitions/TenantAddDto'
+      responses:
+        '201':
+          description: |
+            Created tenant mapping
+          schema:
+            $ref: '#/definitions/TenantMappingDto'
+        '400':
+          $ref: '#/responses/400-BadRequest'
+        '401':
+          $ref: '#/responses/401-Unauthorized'
+        '409':
+          $ref: '#/responses/409-Conflict'
+        '500':
+          $ref: '#/responses/500-InternalServerError'
+
   /account/tenant/{tenantId}/userId/{idUser}:
     get:
       summary: Gets a user by tenant and user ID
@@ -299,6 +328,59 @@ definitions:
       - password
       - email
       - tenantId
+
+  TenantAddDto:
+    type: object
+    description: |
+      Input for adding a tenant mapping
+    properties:
+      tenantId:
+        description: |
+          Unique identifier of the tenant
+        type: integer
+        format: int32
+        minimum: 1
+      tenantName:
+        description: |
+          Display name of the tenant
+        type: string
+        minLength: 1
+        maxLength: 255
+      email:
+        description: |
+          Contact email address of the tenant
+        type: string
+        format: email
+        maxLength: 255
+    required:
+      - tenantId
+      - tenantName
+      - email
+
+  TenantMappingDto:
+    type: object
+    description: |
+      Tenant mapping resource returned by the tenant operations
+    properties:
+      tenantId:
+        description: |
+          Unique identifier of the tenant
+        type: integer
+        format: int32
+      tenantName:
+        description: |
+          Display name of the tenant
+        type: string
+      status:
+        description: |
+          Lifecycle status of the tenant
+        type: string
+        maxLength: 15
+      email:
+        description: |
+          Contact email address of the tenant
+        type: string
+        format: email
 
   UserEditDto:
     type: object

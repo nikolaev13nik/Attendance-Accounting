@@ -12,6 +12,7 @@ import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
 import co.il.attendanceaccounting.exceptions.ProtectedUserException;
+import co.il.attendanceaccounting.exceptions.TenantNotFoundException;
 import co.il.attendanceaccounting.exceptions.UserExistsException;
 import co.il.attendanceaccounting.exceptions.UserNotFoundException;
 import co.il.attendanceaccounting.model.User;
@@ -26,6 +27,8 @@ public class UserAccountServiceImpl implements UserAccountService {
 	UserRepository accountRepository;
 	@Autowired
 	PasswordEncoder passwordEncoder;
+	@Autowired
+	TenantService tenantService;
 	@Value("${attendance-accounting.bootstrap.admin.id:123456789}")
 	private int protectedAdminId;
 
@@ -33,6 +36,9 @@ public class UserAccountServiceImpl implements UserAccountService {
 	public UserProfileDto register(UserRegisterDto userRegisterDto) {
 		if (accountRepository.existsById(userRegisterDto.getIdUser())) {
 			throw new UserExistsException();
+		}
+		if (!tenantService.tenantExists(userRegisterDto.getTenantId())) {
+			throw new TenantNotFoundException(String.valueOf(userRegisterDto.getTenantId()));
 		}
 		String hashPassword = passwordEncoder.encode(userRegisterDto.getPassword());
 		User user = User.builder()

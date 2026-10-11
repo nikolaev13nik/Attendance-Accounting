@@ -25,7 +25,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     private static final String LOGIN_URL = ACCOUNT_URL + "/login";
     private static final String USERS_URL = ACCOUNT_URL + "/users";
     private static final String ROLE_URL = "/role/";
+    private static final String TENANT_ADD_URL = ACCOUNT_URL + "/tenant/add";
     private static final Integer NEW_TENANT_ID = 300;
+    private static final Integer ADDED_TENANT_ID = 401;
     private static final Integer PROTECTED_ADMIN_ID = 123456789;
     private static final String PROTECTED_MESSAGE = "user is protected and cannot be deleted";
 
@@ -90,6 +92,45 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(before, userRepository.count(), "Reason: no user should be added");
         assertFalse(userRepository.existsById(96));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/user with a tenantId missing from att_ac_tenant_mapping returns 400 BAD_REQUEST")
+    void registerWithUnknownTenantIdTest() {
+        long before = userRepository.count();
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(95, "pw", "New", "User", "new.user3@example.com", UNKNOWN_TENANT_ID), null, null);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("Tenant with id = " + UNKNOWN_TENANT_ID + " not found", errorMessage(response));
+        assertEquals(before, userRepository.count(), "Reason: no user should be added for an unknown tenant");
+        assertFalse(userRepository.existsById(95));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/user into a seeded tenant registers the user")
+    void registerWithSeededTenantIdTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(94, "pw", "New", "User", "new.user4@example.com",
+                TENANT_ID_100), null, null);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        UserProfileDto body = readObject(response, UserProfileDto.class);
+        assertEquals(TENANT_ID_100, body.getTenantId());
+        assertEquals(TENANT_ID_100, userRepository.findById(94).orElseThrow().getTenantId());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/user succeeds in a tenant added through POST /account/tenant/add")
+    void registerAfterAddingTenantTest() {
+        ResponseEntity<String> tenantResponse = send(HttpMethod.POST, TENANT_ADD_URL, createTenantAddDto(ADDED_TENANT_ID, "Initrode", "admin@initrode.local"), USER_ID, USER_PWD);
+        assertEquals(HttpStatus.CREATED, tenantResponse.getStatusCode());
+
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(93, "pw", "New", "User", "new.user5@example.com", ADDED_TENANT_ID), null, null);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode(),
+                "Reason: registration must accept a tenant that was just onboarded through the add-tenant API");
+        UserProfileDto body = readObject(response, UserProfileDto.class);
+        assertEquals(ADDED_TENANT_ID, body.getTenantId());
+        assertEquals(ADDED_TENANT_ID, userRepository.findById(93).orElseThrow().getTenantId());
     }
 
     @Test

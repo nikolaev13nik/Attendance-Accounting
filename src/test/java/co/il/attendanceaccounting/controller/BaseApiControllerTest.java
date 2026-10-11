@@ -20,7 +20,9 @@ import org.springframework.web.client.RestTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import co.il.attendanceaccounting.dao.TenantMappingRepository;
 import co.il.attendanceaccounting.dao.UserRepository;
+import co.il.attendanceaccounting.dto.TenantAddDto;
 import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
 
@@ -36,6 +38,9 @@ public abstract class BaseApiControllerTest {
 
     @Autowired
     protected UserRepository userRepository;
+
+    @Autowired
+    protected TenantMappingRepository tenantMappingRepository;
 
     @Autowired
     protected ObjectMapper objectMapper;
@@ -54,6 +59,12 @@ public abstract class BaseApiControllerTest {
     protected static final Integer OTHER_USER_TENANT_ID = 200;
 
     protected static final String FORBIDDEN_MESSAGE = "Forbidden";
+
+    protected static final Integer TENANT_ID_100 = 100;
+    protected static final String TENANT_100_NAME = "Acme Corp";
+    protected static final String TENANT_100_EMAIL = "admin@acme.local";
+    protected static final String TENANT_100_STATUS = "ACTIVE";
+    protected static final Integer UNKNOWN_TENANT_ID = 999;
 
     private final RestTemplate rest = createRestTemplate();
 
@@ -161,6 +172,14 @@ public abstract class BaseApiControllerTest {
                 .lastName(lastName)
                 .email(email)
                 .tenantId(tenantId)
+                .build();
+    }
+
+    protected TenantAddDto createTenantAddDto(Integer tenantId, String tenantName, String email) {
+        return TenantAddDto.builder()
+                .tenantId(tenantId)
+                .tenantName(tenantName)
+                .email(email)
                 .build();
     }
 

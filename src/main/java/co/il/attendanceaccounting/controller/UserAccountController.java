@@ -12,9 +12,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import co.il.attendanceaccounting.api.AccountApi;
+import co.il.attendanceaccounting.dto.TenantAddDto;
+import co.il.attendanceaccounting.dto.TenantMappingDto;
 import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
+import co.il.attendanceaccounting.service.TenantService;
 import co.il.attendanceaccounting.service.UserAccountService;
 
 @RestController
@@ -24,10 +27,17 @@ public class UserAccountController implements AccountApi {
 	private  UserAccountService userAccountService;
 	@Autowired
     private AuthenticationService authenticationService;
+	@Autowired
+	private TenantService tenantService;
 
 	@Override
 	public ResponseEntity<UserProfileDto> register(UserRegisterDto userRegisterDto) {
 		return ResponseEntity.status(HttpStatus.CREATED).body(userAccountService.register(userRegisterDto));
+	}
+
+	@Override
+	public ResponseEntity<TenantMappingDto> addTenant(TenantAddDto tenantAddDto) {
+		return ResponseEntity.status(HttpStatus.CREATED).body(tenantService.addTenant(tenantAddDto));
 	}
 
 	@Override
