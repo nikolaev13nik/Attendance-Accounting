@@ -34,6 +34,16 @@ public class TenantServiceImpl implements TenantService {
 		return tenantId != null && tenantMappingRepository.existsById(tenantId);
 	}
 
+	@Override
+	public String getTenantName(Integer tenantId) {
+		if (tenantId == null) {
+			return null;
+		}
+		return tenantMappingRepository.findById(tenantId)
+				.map(TenantMapping::getTenantName)
+				.orElse(null);
+	}
+
 	private TenantMappingDto tenantMappingToTenantMappingDto(TenantMapping tenantMapping) {
 		return TenantMappingDto.builder()
 				.tenantId(tenantMapping.getTenantId())

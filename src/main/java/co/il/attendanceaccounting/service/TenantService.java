@@ -8,4 +8,6 @@ public interface TenantService {
 	TenantMappingDto addTenant(TenantAddDto tenantAddDto);
 
 	boolean tenantExists(Integer tenantId);
+
+	String getTenantName(Integer tenantId);
 }

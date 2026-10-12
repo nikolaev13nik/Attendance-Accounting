@@ -16,6 +16,7 @@ import co.il.attendanceaccounting.security.dto.LoginResponseDto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UserAccountControllerTest extends BaseApiControllerTest {
@@ -227,7 +228,30 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals("Doe", profile.getLastName());
         assertEquals(USER_EMAIL, profile.getEmail());
         assertEquals(USER_TENANT_ID, profile.getTenantId());
+        assertEquals(TENANT_100_NAME, profile.getTenantName(),
+                "Reason: login must resolve the tenant name from att_ac_tenant_mapping");
         assertTrue(profile.getRoles().contains("User"));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/login for a user whose tenant has no mapping row returns a profile without tenantName")
+    void loginUnmappedTenantTest() {
+        send(HttpMethod.POST, USER_URL,
+                createUserRegisterDto(98, NEW_USER_PWD, "No", "Tenant", "no.tenant@example.com", NEW_TENANT_ID),
+                null, null);
+        tenantMappingRepository.deleteById(NEW_TENANT_ID);
+
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL,
+                new LoginRequestDto(98, NEW_USER_PWD, NEW_TENANT_ID), null, null);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode(),
+                "Reason: a missing tenant mapping must not block login");
+        UserProfileDto profile = readObject(response, LoginResponseDto.class).getProfile();
+        assertEquals(NEW_TENANT_ID, profile.getTenantId());
+        assertNull(profile.getTenantName(),
+                "Reason: with no mapping row there is no name to report");
+        assertFalse(tenantMappingRepository.existsById(NEW_TENANT_ID));
     }
 
     @Test

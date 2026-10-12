@@ -432,6 +432,10 @@ definitions:
           Identifier of the tenant the user belongs to
         type: integer
         format: int32
+      tenantName:
+        description: |
+          Display name of the tenant the user belongs to
+        type: string
       roles:
         description: |
           Roles assigned to the user
