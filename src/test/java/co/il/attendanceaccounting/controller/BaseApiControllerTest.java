@@ -1,8 +1,5 @@
 package co.il.attendanceaccounting.controller;
 
-import java.util.List;
-
-import co.il.attendanceaccounting.security.dto.LoginRequestDto;
 import org.flywaydb.test.FlywayTestExecutionListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -17,14 +14,17 @@ import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+
+import java.util.List;
 
 import co.il.attendanceaccounting.dao.TenantMappingRepository;
 import co.il.attendanceaccounting.dao.UserRepository;
 import co.il.attendanceaccounting.dto.TenantAddDto;
 import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
+import co.il.attendanceaccounting.security.dto.LoginRequestDto;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestExecutionListeners(
@@ -84,11 +84,23 @@ public abstract class BaseApiControllerTest {
     protected ResponseEntity<String> send(
             HttpMethod method, String path, Object body, Integer secureUser, String securePass) {
 
+        String token = secureUser == null
+                ? null
+                : obtainToken(secureUser, securePass, tenantIdFor(secureUser));
+        return sendWithToken(method, path, body, token);
+    }
+
+    /**
+     * Helper to send HTTP requests with an already obtained bearer token
+     */
+    protected ResponseEntity<String> sendWithToken(
+            HttpMethod method, String path, Object body, String token) {
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        if (secureUser != null ) {
-            headers.setBearerAuth(obtainToken(secureUser, securePass));
+        if (token != null) {
+            headers.setBearerAuth(token);
         }
         Object payload = (body == null || body instanceof  String) ? body: objectMapper.writeValueAsString(body);
         return rest.exchange(url(path), method, new HttpEntity<>(payload,headers), String.class);
@@ -98,10 +110,13 @@ public abstract class BaseApiControllerTest {
         return "http://localhost:" + port + path;
     }
 
-    private String obtainToken(Integer secureUser, String securePass) {
+    /**
+     * Logs in for real and returns the JWT, for users outside the well-known seeded set
+     */
+    protected String obtainToken(Integer secureUser, String securePass, Integer tenantId) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        String payload = objectMapper.writeValueAsString(new LoginRequestDto(secureUser,securePass, tenantIdFor(secureUser)));
+        String payload = objectMapper.writeValueAsString(new LoginRequestDto(secureUser,securePass, tenantId));
         ResponseEntity<String>response = rest.exchange(url("/account/login"),HttpMethod.POST,new HttpEntity<>(payload,headers),String.class);
         return json(response).path("token").asString();
     }

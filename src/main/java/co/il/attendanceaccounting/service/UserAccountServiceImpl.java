@@ -5,7 +5,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import co.il.attendanceaccounting.dao.UserRepository;
 import co.il.attendanceaccounting.dto.UserEditDto;
@@ -18,6 +20,7 @@ import co.il.attendanceaccounting.exceptions.UserNotFoundException;
 import co.il.attendanceaccounting.model.User;
 import jakarta.transaction.Transactional;
 
+import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
 import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.USER;
 
 @Service
@@ -32,6 +35,7 @@ public class UserAccountServiceImpl implements UserAccountService {
 	@Value("${attendance-accounting.bootstrap.admin.id:123456789}")
 	private int protectedAdminId;
 
+	@Transactional
 	@Override
 	public UserProfileDto register(UserRegisterDto userRegisterDto) {
 		if (accountRepository.existsById(userRegisterDto.getIdUser())) {
@@ -48,10 +52,19 @@ public class UserAccountServiceImpl implements UserAccountService {
 				.lastName(userRegisterDto.getLastName())
 				.email(userRegisterDto.getEmail())
 				.tenantId(userRegisterDto.getTenantId())
-				.role(USER.name())
+				.roles(rolesForNewUser(userRegisterDto.getTenantId()))
 				.build();
 		accountRepository.save(user);
 		return userToUserProfileDto(user);
+	}
+
+	private Set<String> rolesForNewUser(Integer tenantId) {
+		Set<String> roles = new LinkedHashSet<>();
+		roles.add(USER.name());
+		if (!accountRepository.existsByTenantId(tenantId)) {
+			roles.add(ADMINISTRATOR.name());
+		}
+		return roles;
 	}
 
 	private UserProfileDto userToUserProfileDto(User userAccount) {
