@@ -5,18 +5,22 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import co.il.attendanceaccounting.dao.UserRepository;
 import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
 import co.il.attendanceaccounting.exceptions.ProtectedUserException;
+import co.il.attendanceaccounting.exceptions.TenantNotFoundException;
 import co.il.attendanceaccounting.exceptions.UserExistsException;
 import co.il.attendanceaccounting.exceptions.UserNotFoundException;
 import co.il.attendanceaccounting.model.User;
 import jakarta.transaction.Transactional;
 
+import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
 import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.USER;
 
 @Service
@@ -26,13 +30,19 @@ public class UserAccountServiceImpl implements UserAccountService {
 	UserRepository accountRepository;
 	@Autowired
 	PasswordEncoder passwordEncoder;
+	@Autowired
+	TenantService tenantService;
 	@Value("${attendance-accounting.bootstrap.admin.id:123456789}")
 	private int protectedAdminId;
 
+	@Transactional
 	@Override
 	public UserProfileDto register(UserRegisterDto userRegisterDto) {
 		if (accountRepository.existsById(userRegisterDto.getIdUser())) {
 			throw new UserExistsException();
+		}
+		if (!tenantService.tenantExists(userRegisterDto.getTenantId())) {
+			throw new TenantNotFoundException(String.valueOf(userRegisterDto.getTenantId()));
 		}
 		String hashPassword = passwordEncoder.encode(userRegisterDto.getPassword());
 		User user = User.builder()
@@ -42,19 +52,33 @@ public class UserAccountServiceImpl implements UserAccountService {
 				.lastName(userRegisterDto.getLastName())
 				.email(userRegisterDto.getEmail())
 				.tenantId(userRegisterDto.getTenantId())
-				.role(USER.name())
+				.roles(rolesForNewUser(userRegisterDto.getTenantId()))
 				.build();
 		accountRepository.save(user);
 		return userToUserProfileDto(user);
 	}
 
+	private Set<String> rolesForNewUser(Integer tenantId) {
+		Set<String> roles = new LinkedHashSet<>();
+		roles.add(USER.name());
+		if (!accountRepository.existsByTenantId(tenantId)) {
+			roles.add(ADMINISTRATOR.name());
+		}
+		return roles;
+	}
+
 	private UserProfileDto userToUserProfileDto(User userAccount) {
+		return userToUserProfileDto(userAccount, null);
+	}
+
+	private UserProfileDto userToUserProfileDto(User userAccount, String tenantName) {
 		return UserProfileDto.builder()
 				.idUser(userAccount.getIdUser())
 				.firstName(userAccount.getFirstName())
 				.lastName(userAccount.getLastName())
 				.email(userAccount.getEmail())
 				.tenantId(userAccount.getTenantId())
+				.tenantName(tenantName)
 				.roles(userAccount.getRoles())
 				.build();
 	}
@@ -62,7 +86,7 @@ public class UserAccountServiceImpl implements UserAccountService {
 	@Override
 	public UserProfileDto login(Integer idUser) {
 		User user = accountRepository.findById(idUser).get();
-		return userToUserProfileDto(user);
+		return userToUserProfileDto(user, tenantService.getTenantName(user.getTenantId()));
 	}
 
 	@Transactional

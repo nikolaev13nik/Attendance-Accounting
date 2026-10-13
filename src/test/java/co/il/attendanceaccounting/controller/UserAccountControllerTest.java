@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.Set;
 
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.security.dto.LoginRequestDto;
@@ -15,6 +16,7 @@ import co.il.attendanceaccounting.security.dto.LoginResponseDto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UserAccountControllerTest extends BaseApiControllerTest {
@@ -25,15 +27,22 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     private static final String LOGIN_URL = ACCOUNT_URL + "/login";
     private static final String USERS_URL = ACCOUNT_URL + "/users";
     private static final String ROLE_URL = "/role/";
+    private static final String TENANT_ADD_URL = ACCOUNT_URL + "/tenant/add";
     private static final Integer NEW_TENANT_ID = 300;
+    private static final Integer ADDED_TENANT_ID = 401;
     private static final Integer PROTECTED_ADMIN_ID = 123456789;
     private static final String PROTECTED_MESSAGE = "user is protected and cannot be deleted";
+    private static final String USER_ROLE = "USER";
+    private static final String ADMINISTRATOR_ROLE = "ADMINISTRATOR";
+    private static final String NEW_USER_PWD = "pw";
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user registers a new user (public) and persists it")
+    @DisplayName("POST /account/user as the first user of an empty tenant registers them as administrator")
     void registerNewUserTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(99, "pw", "New", "User", "new.user@example.com", NEW_TENANT_ID), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL,
+                createUserRegisterDto(99, NEW_USER_PWD, "New", "User", "new.user@example.com", NEW_TENANT_ID), null,
+                null);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
         assertEquals(99, body.getIdUser().intValue());
@@ -41,11 +50,75 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals("User", body.getLastName());
         assertEquals("new.user@example.com", body.getEmail());
         assertEquals(NEW_TENANT_ID, body.getTenantId());
-        assertTrue(body.getRoles().contains("USER"), "Reason: new user gets the default 'USER' role");
-        assertEquals(1, body.getRoles().size());
+        assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), body.getRoles(),
+                "Reason: the first user of a tenant keeps the default 'USER' role and also gets 'ADMINISTRATOR'");
         assertTrue(userRepository.existsById(99));
+        assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), userRepository.findById(99).orElseThrow().getRoles(),
+                "Reason: both roles must be persisted in user_roles, not only returned");
         assertEquals("new.user@example.com", userRepository.findById(99).orElseThrow().getEmail());
         assertEquals(NEW_TENANT_ID, userRepository.findById(99).orElseThrow().getTenantId());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/user for the second user of a tenant grants only the default 'USER' role")
+    void registerSecondUserInTenantTest() {
+        ResponseEntity<String> first = send(HttpMethod.POST, USER_URL,
+                createUserRegisterDto(99, NEW_USER_PWD, "First", "User", "first.user@example.com", NEW_TENANT_ID), null,
+                null);
+        assertEquals(HttpStatus.CREATED, first.getStatusCode());
+        assertTrue(readObject(first, UserProfileDto.class).getRoles().contains(ADMINISTRATOR_ROLE),
+                "Reason: the first registration must be the administrator for this test to be meaningful");
+
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL,
+                createUserRegisterDto(92, NEW_USER_PWD, "Second", "User", "second.user@example.com", NEW_TENANT_ID),
+                null, null);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        UserProfileDto body = readObject(response, UserProfileDto.class);
+        assertEquals(Set.of(USER_ROLE), body.getRoles(),
+                "Reason: only the first user of a tenant is promoted, every later one stays a plain user");
+        assertEquals(Set.of(USER_ROLE), userRepository.findById(92).orElseThrow().getRoles());
+        assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), userRepository.findById(99).orElseThrow().getRoles(),
+                "Reason: registering a second user must not strip the first user's administrator role");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/user as the first user of a tenant can then use an administrator-only endpoint")
+    void firstUserOfTenantIsAuthorizedAsAdminTest() {
+        ResponseEntity<String> admin = send(HttpMethod.POST, USER_URL,
+                createUserRegisterDto(91, NEW_USER_PWD, "Tenant", "Admin", "tenant.admin@example.com", NEW_TENANT_ID),
+                null, null);
+        assertEquals(HttpStatus.CREATED, admin.getStatusCode());
+        ResponseEntity<String> member = send(HttpMethod.POST, USER_URL,
+                createUserRegisterDto(90, NEW_USER_PWD, "Tenant", "Member", "tenant.member@example.com", NEW_TENANT_ID),
+                null, null);
+        assertEquals(HttpStatus.CREATED, member.getStatusCode());
+
+        String token = obtainToken(91, NEW_USER_PWD, NEW_TENANT_ID);
+        ResponseEntity<String> response = sendWithToken(HttpMethod.POST, USER_URL + "/" + 90 + ROLE_URL + "Moderator",
+                null, token);
+        assertEquals(HttpStatus.OK, response.getStatusCode(),
+                "Reason: the auto-granted role must survive login into the JWT authorities claim and satisfy hasRole('ADMINISTRATOR')");
+        assertTrue(userRepository.findById(90).orElseThrow().getRoles().contains("Moderator"));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/user into a tenant whose users were all removed grants administrator again")
+    void registerIntoEmptiedTenantTest() {
+        ResponseEntity<String> deleted = send(HttpMethod.DELETE, USER_URL + "/" + OTHER_USER_ID, null, ADMIN_ID,
+                ADMIN_PWD);
+        assertEquals(HttpStatus.OK, deleted.getStatusCode());
+        assertFalse(userRepository.existsById(OTHER_USER_ID));
+
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL,
+                createUserRegisterDto(89, NEW_USER_PWD, "New", "Owner", "new.owner@example.com", OTHER_USER_TENANT_ID),
+                null, null);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), readObject(response, UserProfileDto.class).getRoles(),
+                "Reason: the rule is 'no users in the tenant', so a tenant left empty gets an administrator again");
+        assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), userRepository.findById(89).orElseThrow().getRoles());
     }
 
     @Test
@@ -94,6 +167,55 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
+    @DisplayName("POST /account/user with a tenantId missing from att_ac_tenant_mapping returns 400 BAD_REQUEST")
+    void registerWithUnknownTenantIdTest() {
+        long before = userRepository.count();
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(95, "pw", "New", "User", "new.user3@example.com", UNKNOWN_TENANT_ID), null, null);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("Tenant with id = " + UNKNOWN_TENANT_ID + " not found", errorMessage(response));
+        assertEquals(before, userRepository.count(), "Reason: no user should be added for an unknown tenant");
+        assertFalse(userRepository.existsById(95));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/user into a seeded tenant registers the user as a plain user")
+    void registerWithSeededTenantIdTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL,
+                createUserRegisterDto(94, NEW_USER_PWD, "New", "User", "new.user4@example.com",
+                TENANT_ID_100), null, null);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        UserProfileDto body = readObject(response, UserProfileDto.class);
+        assertEquals(TENANT_ID_100, body.getTenantId());
+        assertEquals(TENANT_ID_100, userRepository.findById(94).orElseThrow().getTenantId());
+        assertEquals(Set.of(USER_ROLE), body.getRoles(),
+                "Reason: tenant 100 already holds seeded users, so the newcomer must not be promoted");
+        assertFalse(userRepository.findById(94).orElseThrow().getRoles().contains(ADMINISTRATOR_ROLE));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/user succeeds in a tenant added through POST /account/tenant/add")
+    void registerAfterAddingTenantTest() {
+        ResponseEntity<String> tenantResponse = send(HttpMethod.POST, TENANT_ADD_URL,
+                createTenantAddDto(ADDED_TENANT_ID, "Initrode", "admin@initrode.local"), null, null);
+        assertEquals(HttpStatus.CREATED, tenantResponse.getStatusCode());
+
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL,
+                createUserRegisterDto(93, NEW_USER_PWD, "New", "User", "new.user5@example.com", ADDED_TENANT_ID), null,
+                null);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode(),
+                "Reason: registration must accept a tenant that was just onboarded through the add-tenant API");
+        UserProfileDto body = readObject(response, UserProfileDto.class);
+        assertEquals(ADDED_TENANT_ID, body.getTenantId());
+        assertEquals(ADDED_TENANT_ID, userRepository.findById(93).orElseThrow().getTenantId());
+        assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), body.getRoles(),
+                "Reason: onboarding a tenant and registering into it must yield that tenant's first administrator");
+        assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), userRepository.findById(93).orElseThrow().getRoles());
+    }
+
+    @Test
+    @FlywayTest
     @DisplayName("POST /account/login with valid credentials  returns token and profile")
     void loginValidTest() {
         ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto( USER_ID, USER_PWD, USER_TENANT_ID),null,null);
@@ -106,7 +228,30 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals("Doe", profile.getLastName());
         assertEquals(USER_EMAIL, profile.getEmail());
         assertEquals(USER_TENANT_ID, profile.getTenantId());
+        assertEquals(TENANT_100_NAME, profile.getTenantName(),
+                "Reason: login must resolve the tenant name from att_ac_tenant_mapping");
         assertTrue(profile.getRoles().contains("User"));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/login for a user whose tenant has no mapping row returns a profile without tenantName")
+    void loginUnmappedTenantTest() {
+        send(HttpMethod.POST, USER_URL,
+                createUserRegisterDto(98, NEW_USER_PWD, "No", "Tenant", "no.tenant@example.com", NEW_TENANT_ID),
+                null, null);
+        tenantMappingRepository.deleteById(NEW_TENANT_ID);
+
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL,
+                new LoginRequestDto(98, NEW_USER_PWD, NEW_TENANT_ID), null, null);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode(),
+                "Reason: a missing tenant mapping must not block login");
+        UserProfileDto profile = readObject(response, LoginResponseDto.class).getProfile();
+        assertEquals(NEW_TENANT_ID, profile.getTenantId());
+        assertNull(profile.getTenantName(),
+                "Reason: with no mapping row there is no name to report");
+        assertFalse(tenantMappingRepository.existsById(NEW_TENANT_ID));
     }
 
     @Test
