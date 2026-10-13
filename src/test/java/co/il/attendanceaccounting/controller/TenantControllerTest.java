@@ -11,86 +11,119 @@ import co.il.attendanceaccounting.dto.TenantMappingDto;
 import co.il.attendanceaccounting.model.TenantMapping;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TenantControllerTest extends BaseApiControllerTest {
 
     private static final String TENANT_ADD_URL = "/account/tenant/add";
-    private static final Integer NEW_TENANT_ID = 400;
-    private static final String NEW_TENANT_NAME = "Initrode";
-    private static final String NEW_TENANT_EMAIL = "admin@initrode.local";
-    private static final Integer SECOND_TENANT_ID = 402;
+    private static final String NEW_COMPANY_NAME = "Initrode";
+    private static final String NEW_CONTACT_NAME = "Bob Slydell";
+    private static final String NEW_PHONE = "+1-555-0400";
+    private static final String NEW_EMAIL = "admin@initrode.local";
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/tenant/add without any credentials (public) adds the tenant and persists it")
+    @DisplayName("POST /account/tenant/add without any credentials (public) assigns an id and persists the organization")
     void addTenantTest() {
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, NEW_TENANT_EMAIL), null, null);
+                createTenantAddDto(NEW_COMPANY_NAME, NEW_CONTACT_NAME, NEW_PHONE, NEW_EMAIL), null, null);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
+
         TenantMappingDto body = readObject(response, TenantMappingDto.class);
-        assertEquals(NEW_TENANT_ID, body.getTenantId());
-        assertEquals(NEW_TENANT_NAME, body.getTenantName());
-        assertEquals(NEW_TENANT_EMAIL, body.getEmail());
+        assertNotNull(body.getTenantId(), "Reason: the service assigns the identifier and must return it");
+        assertTrue(body.getTenantId() > 300,
+                "Reason: a generated id must not collide with the seeded organizations 100, 200 and 300");
+        assertEquals(NEW_COMPANY_NAME, body.getCompanyName());
+        assertEquals(NEW_CONTACT_NAME, body.getContactName());
+        assertEquals(NEW_PHONE, body.getPhone());
+        assertEquals(NEW_EMAIL, body.getEmail());
         assertNull(body.getStatus(), "Reason: status is not part of the add request, so it stays unset");
 
-        TenantMapping stored = tenantMappingRepository.findById(NEW_TENANT_ID).orElseThrow();
-        assertEquals(NEW_TENANT_NAME, stored.getTenantName());
-        assertEquals(NEW_TENANT_EMAIL, stored.getEmail());
-        assertNull(stored.getStatus());
+        TenantMapping stored = tenantMappingRepository.findById(body.getTenantId()).orElseThrow();
+        assertEquals(NEW_COMPANY_NAME, stored.getCompanyName());
+        assertEquals(NEW_CONTACT_NAME, stored.getContactName());
+        assertEquals(NEW_PHONE, stored.getPhone());
+        assertEquals(NEW_EMAIL, stored.getEmail());
     }
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/tenant/add with an existing tenantId returns 409 CONFLICT")
-    void addExistingTenantTest() {
+    @DisplayName("POST /account/tenant/add assigns a distinct id to each organization")
+    void addTwoTenantsGetDistinctIdsTest() {
+        ResponseEntity<String> first = send(HttpMethod.POST, TENANT_ADD_URL,
+                createTenantAddDto(NEW_COMPANY_NAME, NEW_CONTACT_NAME, NEW_PHONE, NEW_EMAIL), null, null);
+        ResponseEntity<String> second = send(HttpMethod.POST, TENANT_ADD_URL,
+                createTenantAddDto("Vandelay Industries", "Art Vandelay", "+1-555-0402",
+                        "admin@vandelay.local"), null, null);
+        assertEquals(HttpStatus.CREATED, first.getStatusCode());
+        assertEquals(HttpStatus.CREATED, second.getStatusCode());
+
+        Integer firstId = readObject(first, TenantMappingDto.class).getTenantId();
+        Integer secondId = readObject(second, TenantMappingDto.class).getTenantId();
+        assertTrue(secondId > firstId,
+                String.format("Reason: ids must be assigned in sequence, got %s then %s", firstId, secondId));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/add with a company name already registered returns 409 CONFLICT")
+    void addExistingCompanyNameTest() {
         long before = tenantMappingRepository.count();
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(TENANT_ID_100, "Acme Renamed", "other@acme.local"), null, null);
+                createTenantAddDto(TENANT_100_NAME, "Someone Else", "+1-555-9999", "other@acme.local"), null, null);
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         assertEquals("tenant exists", errorMessage(response));
-        assertEquals(before, tenantMappingRepository.count(), "Reason: no tenant should be added");
-        assertEquals(TENANT_100_NAME, tenantMappingRepository.findById(TENANT_ID_100).orElseThrow().getTenantName(),
-                "Reason: a conflicting add must not overwrite the existing tenant");
+        assertEquals(before, tenantMappingRepository.count(), "Reason: no organization should be added");
+        assertEquals(TENANT_100_EMAIL, tenantMappingRepository.findById(TENANT_ID_100).orElseThrow().getEmail(),
+                "Reason: a conflicting add must not overwrite the existing organization");
     }
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/tenant/add is never rejected as unauthenticated")
-    void addTenantNeedsNoAuthenticationTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(SECOND_TENANT_ID, "Vandelay Industries", "admin@vandelay.local"), null, null);
-        assertNotEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode(),
-                "Reason: the endpoint is permitAll, so no JWT may ever be demanded");
-        assertNotEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertTrue(tenantMappingRepository.existsById(SECOND_TENANT_ID));
-    }
-
-    @Test
-    @FlywayTest
-    @DisplayName("POST /account/tenant/add without a tenantId returns 400 BAD_REQUEST")
-    void addTenantMissingTenantIdTest() {
+    @DisplayName("POST /account/tenant/add matches an existing company name regardless of case and returns 409")
+    void addExistingCompanyNameDifferentCaseTest() {
         long before = tenantMappingRepository.count();
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(null, NEW_TENANT_NAME, NEW_TENANT_EMAIL), null, null);
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals(before, tenantMappingRepository.count(), "Reason: no tenant should be added");
+                createTenantAddDto(TENANT_100_NAME.toUpperCase(), "Someone Else", "+1-555-9999",
+                        "other@acme.local"), null, null);
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode(),
+                "Reason: login resolves a company name case-insensitively, so registration must reject it the same way");
+        assertEquals(before, tenantMappingRepository.count());
     }
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/tenant/add without a tenantName returns 400 BAD_REQUEST")
-    void addTenantMissingTenantNameTest() {
+    @DisplayName("POST /account/tenant/add without a companyName returns 400 BAD_REQUEST")
+    void addTenantMissingCompanyNameTest() {
         long before = tenantMappingRepository.count();
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(NEW_TENANT_ID, null, NEW_TENANT_EMAIL), null, null);
+                createTenantAddDto(null, NEW_CONTACT_NAME, NEW_PHONE, NEW_EMAIL), null, null);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals(before, tenantMappingRepository.count(), "Reason: no tenant should be added");
-        assertFalse(tenantMappingRepository.existsById(NEW_TENANT_ID));
+        assertEquals(before, tenantMappingRepository.count());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/add without a contactName returns 400 BAD_REQUEST")
+    void addTenantMissingContactNameTest() {
+        long before = tenantMappingRepository.count();
+        ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
+                createTenantAddDto(NEW_COMPANY_NAME, null, NEW_PHONE, NEW_EMAIL), null, null);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(before, tenantMappingRepository.count());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/add without a phone returns 400 BAD_REQUEST")
+    void addTenantMissingPhoneTest() {
+        long before = tenantMappingRepository.count();
+        ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
+                createTenantAddDto(NEW_COMPANY_NAME, NEW_CONTACT_NAME, null, NEW_EMAIL), null, null);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(before, tenantMappingRepository.count());
     }
 
     @Test
@@ -99,10 +132,9 @@ class TenantControllerTest extends BaseApiControllerTest {
     void addTenantMissingEmailTest() {
         long before = tenantMappingRepository.count();
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, null), null, null);
+                createTenantAddDto(NEW_COMPANY_NAME, NEW_CONTACT_NAME, NEW_PHONE, null), null, null);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals(before, tenantMappingRepository.count(), "Reason: no tenant should be added");
-        assertFalse(tenantMappingRepository.existsById(NEW_TENANT_ID));
+        assertEquals(before, tenantMappingRepository.count());
     }
 
     @Test
@@ -111,23 +143,8 @@ class TenantControllerTest extends BaseApiControllerTest {
     void addTenantInvalidEmailTest() {
         long before = tenantMappingRepository.count();
         ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, "not-an-email"), null, null);
+                createTenantAddDto(NEW_COMPANY_NAME, NEW_CONTACT_NAME, NEW_PHONE, "not-an-email"), null, null);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals(before, tenantMappingRepository.count(), "Reason: no tenant should be added");
-        assertFalse(tenantMappingRepository.existsById(NEW_TENANT_ID));
-    }
-
-    @Test
-    @FlywayTest
-    @DisplayName("POST /account/tenant/add keeps the seeded tenants readable")
-    void addTenantKeepsSeededTenantsTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(NEW_TENANT_ID, NEW_TENANT_NAME, NEW_TENANT_EMAIL), null, null);
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        TenantMapping seeded = tenantMappingRepository.findById(TENANT_ID_100).orElseThrow();
-        assertEquals(TENANT_100_NAME, seeded.getTenantName());
-        assertEquals(TENANT_100_EMAIL, seeded.getEmail());
-        assertEquals(TENANT_100_STATUS, seeded.getStatus());
-        assertTrue(tenantMappingRepository.existsById(OTHER_USER_TENANT_ID));
+        assertEquals(before, tenantMappingRepository.count());
     }
 }

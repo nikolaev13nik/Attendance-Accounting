@@ -331,53 +331,69 @@ definitions:
   TenantAddDto:
     type: object
     description: |
-      Input for adding a tenant mapping
+      Input for registering an organization. The identifier is assigned by the service
+      and returned on the response; it is not supplied by the caller.
     properties:
-      tenantId:
+      companyName:
         description: |
-          Unique identifier of the tenant
-        type: integer
-        format: int32
-        minimum: 1
-      tenantName:
-        description: |
-          Display name of the tenant
+          Name of the organization. Must not already be registered
         type: string
         minLength: 1
         maxLength: 255
+      contactName:
+        description: |
+          Name of the person responsible for the organization
+        type: string
+        minLength: 1
+        maxLength: 255
+      phone:
+        description: |
+          Contact telephone number of the organization
+        type: string
+        minLength: 1
+        maxLength: 40
       email:
         description: |
-          Contact email address of the tenant
+          Contact email address of the organization
         type: string
         format: email
         maxLength: 255
     required:
-      - tenantId
-      - tenantName
+      - companyName
+      - contactName
+      - phone
       - email
 
   TenantMappingDto:
     type: object
     description: |
-      Tenant mapping resource returned by the tenant operations
+      Organization resource returned by the tenant operations
     properties:
       tenantId:
         description: |
-          Unique identifier of the tenant
+          Identifier assigned to the organization by the service
         type: integer
         format: int32
-      tenantName:
+      companyName:
         description: |
-          Display name of the tenant
+          Name of the organization
+        type: string
+      contactName:
+        description: |
+          Name of the person responsible for the organization
+        type: string
+      phone:
+        description: |
+          Contact telephone number of the organization
         type: string
       status:
         description: |
-          Lifecycle status of the tenant
+          Lifecycle status of the organization
         type: string
         maxLength: 15
       email:
         description: |
-          Contact email address of the tenant
+          Contact email address of the organization
         type: string
         format: email
 
@@ -432,9 +448,9 @@ definitions:
           Identifier of the tenant the user belongs to
         type: integer
         format: int32
-      tenantName:
+      companyName:
         description: |
-          Display name of the tenant the user belongs to
+          Name of the organization the user belongs to
         type: string
       roles:
         description: |

@@ -64,6 +64,8 @@ public abstract class BaseApiControllerTest {
     protected static final String TENANT_100_NAME = "Acme Corp";
     protected static final String TENANT_100_EMAIL = "admin@acme.local";
     protected static final String TENANT_100_STATUS = "ACTIVE";
+    protected static final String TENANT_100_CONTACT = "Wile E Coyote";
+    protected static final String TENANT_100_PHONE = "+1-555-0100";
     protected static final Integer UNKNOWN_TENANT_ID = 999;
 
     private final RestTemplate rest = createRestTemplate();
@@ -116,7 +118,7 @@ public abstract class BaseApiControllerTest {
     protected String obtainToken(Integer secureUser, String securePass, Integer tenantId) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        String payload = objectMapper.writeValueAsString(new LoginRequestDto(secureUser,securePass, tenantId));
+        String payload = objectMapper.writeValueAsString(new LoginRequestDto(secureUser, securePass, tenantId, null));
         ResponseEntity<String>response = rest.exchange(url("/account/login"),HttpMethod.POST,new HttpEntity<>(payload,headers),String.class);
         return json(response).path("token").asString();
     }
@@ -190,10 +192,11 @@ public abstract class BaseApiControllerTest {
                 .build();
     }
 
-    protected TenantAddDto createTenantAddDto(Integer tenantId, String tenantName, String email) {
+    protected TenantAddDto createTenantAddDto(String companyName, String contactName, String phone, String email) {
         return TenantAddDto.builder()
-                .tenantId(tenantId)
-                .tenantName(tenantName)
+                .companyName(companyName)
+                .contactName(contactName)
+                .phone(phone)
                 .email(email)
                 .build();
     }

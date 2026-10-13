@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import java.util.List;
 import java.util.Set;
 
+import co.il.attendanceaccounting.dto.TenantMappingDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.security.dto.LoginRequestDto;
 import co.il.attendanceaccounting.security.dto.LoginResponseDto;
@@ -29,7 +30,6 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     private static final String ROLE_URL = "/role/";
     private static final String TENANT_ADD_URL = ACCOUNT_URL + "/tenant/add";
     private static final Integer NEW_TENANT_ID = 300;
-    private static final Integer ADDED_TENANT_ID = 401;
     private static final Integer PROTECTED_ADMIN_ID = 123456789;
     private static final String PROTECTED_MESSAGE = "user is protected and cannot be deleted";
     private static final String USER_ROLE = "USER";
@@ -198,17 +198,18 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @DisplayName("POST /account/user succeeds in a tenant added through POST /account/tenant/add")
     void registerAfterAddingTenantTest() {
         ResponseEntity<String> tenantResponse = send(HttpMethod.POST, TENANT_ADD_URL,
-                createTenantAddDto(ADDED_TENANT_ID, "Initrode", "admin@initrode.local"), null, null);
+                createTenantAddDto("Initrode", "Bob Slydell", "+1-555-0400", "admin@initrode.local"), null, null);
         assertEquals(HttpStatus.CREATED, tenantResponse.getStatusCode());
+        Integer addedTenantId = readObject(tenantResponse, TenantMappingDto.class).getTenantId();
 
         ResponseEntity<String> response = send(HttpMethod.POST, USER_URL,
-                createUserRegisterDto(93, NEW_USER_PWD, "New", "User", "new.user5@example.com", ADDED_TENANT_ID), null,
+                createUserRegisterDto(93, NEW_USER_PWD, "New", "User", "new.user5@example.com", addedTenantId), null,
                 null);
         assertEquals(HttpStatus.CREATED, response.getStatusCode(),
                 "Reason: registration must accept a tenant that was just onboarded through the add-tenant API");
         UserProfileDto body = readObject(response, UserProfileDto.class);
-        assertEquals(ADDED_TENANT_ID, body.getTenantId());
-        assertEquals(ADDED_TENANT_ID, userRepository.findById(93).orElseThrow().getTenantId());
+        assertEquals(addedTenantId, body.getTenantId());
+        assertEquals(addedTenantId, userRepository.findById(93).orElseThrow().getTenantId());
         assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), body.getRoles(),
                 "Reason: onboarding a tenant and registering into it must yield that tenant's first administrator");
         assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), userRepository.findById(93).orElseThrow().getRoles());
@@ -218,7 +219,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("POST /account/login with valid credentials  returns token and profile")
     void loginValidTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto( USER_ID, USER_PWD, USER_TENANT_ID),null,null);
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL,
+                new LoginRequestDto(USER_ID, USER_PWD, USER_TENANT_ID, null), null, null);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         LoginResponseDto body = readObject(response, LoginResponseDto.class);
         assertEquals("Bearer", body.getTokenType());
@@ -228,14 +230,14 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals("Doe", profile.getLastName());
         assertEquals(USER_EMAIL, profile.getEmail());
         assertEquals(USER_TENANT_ID, profile.getTenantId());
-        assertEquals(TENANT_100_NAME, profile.getTenantName(),
-                "Reason: login must resolve the tenant name from att_ac_tenant_mapping");
+        assertEquals(TENANT_100_NAME, profile.getCompanyName(),
+                "Reason: login must resolve the company name from att_ac_tenant_mapping");
         assertTrue(profile.getRoles().contains("User"));
     }
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/login for a user whose tenant has no mapping row returns a profile without tenantName")
+    @DisplayName("POST /account/login for a user whose tenant has no mapping row returns a profile without companyName")
     void loginUnmappedTenantTest() {
         send(HttpMethod.POST, USER_URL,
                 createUserRegisterDto(98, NEW_USER_PWD, "No", "Tenant", "no.tenant@example.com", NEW_TENANT_ID),
@@ -243,13 +245,13 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         tenantMappingRepository.deleteById(NEW_TENANT_ID);
 
         ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL,
-                new LoginRequestDto(98, NEW_USER_PWD, NEW_TENANT_ID), null, null);
+                new LoginRequestDto(98, NEW_USER_PWD, NEW_TENANT_ID, null), null, null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode(),
                 "Reason: a missing tenant mapping must not block login");
         UserProfileDto profile = readObject(response, LoginResponseDto.class).getProfile();
         assertEquals(NEW_TENANT_ID, profile.getTenantId());
-        assertNull(profile.getTenantName(),
+        assertNull(profile.getCompanyName(),
                 "Reason: with no mapping row there is no name to report");
         assertFalse(tenantMappingRepository.existsById(NEW_TENANT_ID));
     }
@@ -258,7 +260,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("POST /account/login without credentials returns 401 UNAUTHORIZED")
     void loginAnonymousTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto(null,null, null), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto(null, null, null, null),
+                null, null);
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
@@ -266,7 +269,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("POST /account/login with a wrong password returns 401 UNAUTHORIZED")
     void loginWrongPasswordTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto(USER_ID,"wrong-password", USER_TENANT_ID),null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL,
+                new LoginRequestDto(USER_ID, "wrong-password", USER_TENANT_ID, null), null, null);
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
@@ -274,7 +278,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("POST /account/login with a wrong tenantId returns 401 UNAUTHORIZED")
     void loginWrongTenantTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto(USER_ID, USER_PWD, OTHER_USER_TENANT_ID), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL,
+                new LoginRequestDto(USER_ID, USER_PWD, OTHER_USER_TENANT_ID, null), null, null);
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
@@ -282,7 +287,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("POST /account/login without a tenantId returns 401 UNAUTHORIZED")
     void loginMissingTenantTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, new LoginRequestDto(USER_ID, USER_PWD, null), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL,
+                new LoginRequestDto(USER_ID, USER_PWD, null, null), null, null);
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
@@ -551,5 +557,72 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     private String userByTenantUrl(Integer tenantId, Integer idUser) {
         return ACCOUNT_URL + "/tenant/" + tenantId + "/userId/" + idUser;
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/login identifies the organization by company name instead of its id")
+    void loginByCompanyNameTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL,
+                new LoginRequestDto(USER_ID, USER_PWD, null, TENANT_100_NAME), null, null);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode(),
+                "Reason: a caller who knows the company name should not need to know its id");
+        UserProfileDto profile = readObject(response, LoginResponseDto.class).getProfile();
+        assertEquals(USER_TENANT_ID, profile.getTenantId(),
+                "Reason: the name must resolve to the organization the user belongs to");
+        assertEquals(TENANT_100_NAME, profile.getCompanyName());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/login matches the company name regardless of case and surrounding spaces")
+    void loginByCompanyNameIgnoresCaseTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL,
+                new LoginRequestDto(USER_ID, USER_PWD, null, "  " + TENANT_100_NAME.toUpperCase() + "  "),
+                null, null);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode(),
+                "Reason: people type their own company name casually, so matching must tolerate case and padding");
+        assertEquals(USER_TENANT_ID, readObject(response, LoginResponseDto.class).getProfile().getTenantId());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/login with a company name belonging to another organization returns 401")
+    void loginByWrongCompanyNameTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL,
+                new LoginRequestDto(USER_ID, USER_PWD, null, "Globex"), null, null);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode(),
+                "Reason: the user belongs to Acme Corp, so logging in against Globex must fail");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/login with an unknown company name returns 401 and reveals nothing")
+    void loginByUnknownCompanyNameTest() {
+        ResponseEntity<String> unknownCompany = send(HttpMethod.POST, LOGIN_URL,
+                new LoginRequestDto(USER_ID, USER_PWD, null, "No Such Company"), null, null);
+        ResponseEntity<String> wrongPassword = send(HttpMethod.POST, LOGIN_URL,
+                new LoginRequestDto(USER_ID, "wrong-password", null, TENANT_100_NAME), null, null);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, unknownCompany.getStatusCode());
+        assertEquals(wrongPassword.getStatusCode(), unknownCompany.getStatusCode(),
+                "Reason: an unknown organization must be indistinguishable from a wrong password, "
+                        + "or login becomes a way to discover which organizations exist");
+        assertEquals(wrongPassword.getBody(), unknownCompany.getBody(),
+                "Reason: the two rejections must not differ in body either");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/login with neither an organization id nor a company name returns 401")
+    void loginWithoutOrganizationTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL,
+                new LoginRequestDto(USER_ID, USER_PWD, null, null), null, null);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode(),
+                "Reason: without an organization there is nothing to authenticate the user against");
     }
 }

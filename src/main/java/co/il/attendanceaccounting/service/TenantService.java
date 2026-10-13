@@ -9,5 +9,7 @@ public interface TenantService {
 
 	boolean tenantExists(Integer tenantId);
 
-	String getTenantName(Integer tenantId);
+	String getCompanyName(Integer tenantId);
+
+	Integer resolveTenantId(String companyName);
 }

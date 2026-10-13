@@ -71,14 +71,14 @@ public class UserAccountServiceImpl implements UserAccountService {
 		return userToUserProfileDto(userAccount, null);
 	}
 
-	private UserProfileDto userToUserProfileDto(User userAccount, String tenantName) {
+	private UserProfileDto userToUserProfileDto(User userAccount, String companyName) {
 		return UserProfileDto.builder()
 				.idUser(userAccount.getIdUser())
 				.firstName(userAccount.getFirstName())
 				.lastName(userAccount.getLastName())
 				.email(userAccount.getEmail())
 				.tenantId(userAccount.getTenantId())
-				.tenantName(tenantName)
+				.companyName(companyName)
 				.roles(userAccount.getRoles())
 				.build();
 	}
@@ -86,7 +86,7 @@ public class UserAccountServiceImpl implements UserAccountService {
 	@Override
 	public UserProfileDto login(Integer idUser) {
 		User user = accountRepository.findById(idUser).get();
-		return userToUserProfileDto(user, tenantService.getTenantName(user.getTenantId()));
+		return userToUserProfileDto(user, tenantService.getCompanyName(user.getTenantId()));
 	}
 
 	@Transactional
