@@ -27,6 +27,32 @@ security:
 
 paths:
 
+  /account/login:
+    post:
+      summary: Authenticates a user and issues a JWT
+      operationId: login
+      tags:
+        - Account
+      security: []
+      parameters:
+        - name: LoginRequestDto
+          in: body
+          description: |
+            Credentials of the user and the organization the user belongs to
+          required: false
+          schema:
+            $ref: '#/definitions/LoginRequestDto'
+      responses:
+        '200':
+          description: |
+            Issued token and the profile of the authenticated user
+          schema:
+            $ref: '#/definitions/LoginResponseDto'
+        '401':
+          $ref: '#/responses/401-Unauthorized'
+        '500':
+          $ref: '#/responses/500-InternalServerError'
+
   /account/user:
     post:
       summary: Registers a new user
@@ -286,6 +312,51 @@ paths:
 
 
 definitions:
+
+  LoginRequestDto:
+    type: object
+    description: |
+      Input for login; the organization is given either by tenantId or by companyName
+    properties:
+      idUser:
+        description: |
+          Unique identifier of the user
+        type: integer
+        format: int32
+      password:
+        description: |
+          Password of the user
+        type: string
+      tenantId:
+        description: |
+          Identifier of the tenant the user belongs to
+        type: integer
+        format: int32
+      companyName:
+        description: |
+          Name of the organization the user belongs to, used when tenantId is not given
+        type: string
+
+  LoginResponseDto:
+    type: object
+    description: |
+      Issued token and the profile of the authenticated user
+    properties:
+      token:
+        description: |
+          Signed JWT
+        type: string
+      tokenType:
+        description: |
+          Token type, always Bearer
+        type: string
+      expiresIn:
+        description: |
+          Token lifetime in seconds
+        type: integer
+        format: int64
+      profile:
+        $ref: '#/definitions/UserProfileDto'
 
   UserRegisterDto:
     type: object

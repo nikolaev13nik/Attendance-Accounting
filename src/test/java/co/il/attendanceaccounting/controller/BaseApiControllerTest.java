@@ -22,7 +22,7 @@ import co.il.attendanceaccounting.dao.UserRepository;
 import co.il.attendanceaccounting.dto.TenantAddDto;
 import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
-import co.il.attendanceaccounting.security.dto.LoginRequestDto;
+import co.il.attendanceaccounting.dto.LoginRequestDto;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -118,7 +118,7 @@ public abstract class BaseApiControllerTest {
     protected String obtainToken(Integer secureUser, String securePass, Integer tenantId) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        String payload = objectMapper.writeValueAsString(new LoginRequestDto(secureUser, securePass, tenantId, null));
+        String payload = objectMapper.writeValueAsString(createLoginRequestDto(secureUser, securePass, tenantId, null));
         ResponseEntity<String>response = rest.exchange(url("/account/login"),HttpMethod.POST,new HttpEntity<>(payload,headers),String.class);
         return json(response).path("token").asString();
     }
@@ -198,6 +198,15 @@ public abstract class BaseApiControllerTest {
                 .contactName(contactName)
                 .phone(phone)
                 .email(email)
+                .build();
+    }
+
+    protected LoginRequestDto createLoginRequestDto(Integer idUser, String password, Integer tenantId, String companyName) {
+        return LoginRequestDto.builder()
+                .idUser(idUser)
+                .password(password)
+                .tenantId(tenantId)
+                .companyName(companyName)
                 .build();
     }
 

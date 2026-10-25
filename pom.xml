@@ -213,6 +213,7 @@
 								<!-- OpenAPI-generated API interfaces and DTOs (target/generated-sources/openapi) -->
 								<exclude>co/il/attendanceaccounting/api/**</exclude>
 								<exclude>co/il/attendanceaccounting/dto/**</exclude>
+								<exclude>co/il/attendanceaccounting/mapper/*Impl.class</exclude>
 								<!-- Boot entrypoint: SpringApplication.run plus the local super-admin bootstrap -->
 								<exclude>co/il/attendanceaccounting/*Application.class</exclude>
 							</excludes>

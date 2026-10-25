@@ -1,9 +1,9 @@
 package co.il.attendanceaccounting.security;
 
-import co.il.attendanceaccounting.security.dto.LoginRequestDto;
-import co.il.attendanceaccounting.security.dto.LoginResponseDto;
+import co.il.attendanceaccounting.context.AccountContext;
+import co.il.attendanceaccounting.dto.LoginRequestDto;
 
 public interface AuthenticationService {
 
-    LoginResponseDto authenticate(LoginRequestDto request);
+    void authenticate(AccountContext<LoginRequestDto> context);
 }

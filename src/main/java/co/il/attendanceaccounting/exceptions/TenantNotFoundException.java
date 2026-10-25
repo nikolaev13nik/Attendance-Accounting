@@ -9,7 +9,7 @@ public class TenantNotFoundException extends RuntimeException {
 	private static final long serialVersionUID = 1L;
 
 	public TenantNotFoundException(String tenantId) {
-		super("Tenant with id = " + tenantId + " not found");
+		super(String.format(ErrorConstants.TENANT_NOT_FOUND_MSG, tenantId));
 	}
 
 }

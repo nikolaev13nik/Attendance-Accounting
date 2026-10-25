@@ -26,7 +26,6 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
-import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
 
 import java.nio.charset.StandardCharsets;
 
@@ -41,8 +40,6 @@ import static co.il.attendanceaccounting.security.SecurityConstants.AUTHORITIES;
 @EnableMethodSecurity
 public class SecurityConfiguration {
 
-	private final String ADMINISTRATOR_ROLE="ADMINISTRATOR";
-
 	@Bean
 	SecretKeySpec jwtSecretKey(@Value("${attendance-accounting.security.jwt.secret}") String secret){
 		byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
@@ -52,11 +49,6 @@ public class SecurityConfiguration {
 
 		}
 		return new SecretKeySpec(keyBytes, "HmacSHA256");
-	}
-
-	@Bean
-	WebExpressionAuthorizationManager.Builder authz() {
-		return WebExpressionAuthorizationManager.withDefaults();
 	}
 
 	@Bean
@@ -92,8 +84,7 @@ public class SecurityConfiguration {
 	}
 
 	@Bean
-	SecurityFilterChain filterChain(HttpSecurity http, WebExpressionAuthorizationManager.Builder authz,
-									JwtAuthenticationConverter jwtAuthenticationConverter) {
+	SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationConverter jwtAuthenticationConverter) {
 		http.oauth2ResourceServer(oauth2 ->oauth2.jwt(jwt ->jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)));
 		http.exceptionHandling(ex->ex.accessDeniedHandler(new AccessDeniedHandlerImpl()));
 
@@ -107,11 +98,6 @@ public class SecurityConfiguration {
 				.requestMatchers(HttpMethod.POST, "/account/login").permitAll()
 				.requestMatchers(HttpMethod.POST, "/account/user").permitAll()
 				.requestMatchers(HttpMethod.POST, "/account/tenant/add").permitAll()
-				.requestMatchers(HttpMethod.DELETE, "/account/user/{idUser}").hasRole(ADMINISTRATOR_ROLE)
-				.requestMatchers(HttpMethod.POST, "/account/user/{idUser}/role/{role}").hasRole(ADMINISTRATOR_ROLE)
-				.requestMatchers(HttpMethod.DELETE, "/account/user/{idUser}/role/{role}").hasRole(ADMINISTRATOR_ROLE)
-				.requestMatchers(HttpMethod.PUT, "/account/user/password/{idUser}")
-						.access(authz.expression("@customWebSecurity.checkAuthorityChangePassword(#idUser, authentication) or hasRole('ADMINISTRATOR')"))
 				.anyRequest().authenticated()
 		);
 

@@ -43,50 +43,64 @@ There is no linter/formatter configured in this repo (the shared IntelliJ Google
 
 ## Architecture
 
-### API is contract-first (OpenAPI → generated interface) — except `/account/login`
+### API is contract-first (OpenAPI → generated interface)
 
 `src/main/resources/swagger-source/attendance-accounting-account.yaml` is the source of truth for the REST
-API. The `openapi-generator-maven-plugin` (bound to `generate-sources`) generates the `AccountApi`
+API, including `POST /account/login` and its `LoginRequestDto`/`LoginResponseDto`. The
+`openapi-generator-maven-plugin` (bound to `generate-sources`) generates the `AccountApi`
 interface (`co.il.attendanceaccounting.api`) and DTOs (`co.il.attendanceaccounting.dto`) into
 `target/generated-sources`. `UserAccountController` implements `AccountApi`. **To add/change an endpoint,
 edit the yaml first**, then rebuild so the interface regenerates, then implement the method. Bean
 validation annotations on the DTOs come from the spec (`performBeanValidation`), so input rules like
-"email must be a valid email" are declared there, not in Java.
-
-`POST /account/login` is the one exception: it is hand-written as a `@PostMapping` on the controller and
-is **not in the spec**. If you touch the login contract, keep in mind nothing regenerates it and no
-client codegen sees it.
+"email must be a valid email" are declared there, not in Java. The login body is `required: false` with no
+required fields on purpose: an empty or partial body must reach authentication and get 401, not 400.
 
 **Spec consumers exist outside this repo.** `Attendance-TimeTracking` keeps a manually synced copy of this
 yaml to generate its outbound client, and that copy is already stale (it still has a placeholder
 `GET /account/user/{idUser}`, while this repo has since published
 `GET /account/tenant/{tenantId}/userId/{idUser}`). When changing this spec, update that copy too.
 
-### Layering
+### Layering: strategy services over a shared context (same pattern as TimeTracking)
 
-Thin and conventional — controller → service interface + `Impl` → Spring Data repository → entity. There
-is no strategy/pipeline machinery here (that's TimeTracking's pattern; don't port it over):
+**Follow this pattern for new or changed endpoints — no business logic in the controller, no bypassing the
+pipeline.**
 
-- `UserAccountController` — implements the generated `AccountApi`, plus the hand-written login endpoint.
-  No business logic.
-- `UserAccountService` / `UserAccountServiceImpl` — registration, profile edit, role add/remove, lookups.
-  Password hashing (BCrypt, `AccountConfiguration`) happens here; `userToUserProfileDto` is the single
-  entity→DTO conversion point, and it is what keeps `password` out of every response. Keep new responses
-  going through it.
-- `UserRepository` — `JpaRepository<User, Integer>` with `findByTenantId` and `findByIdUserAndTenantId`.
+- `UserAccountController` implements the generated `AccountApi`. Each method builds an `AccountContext<T>`
+  (`co.il.attendanceaccounting.context`) with its Lombok builder, calls one strategy service's
+  `execute(context)`, and returns the result read back off the context (`201 CREATED` for register and
+  addTenant, `200` otherwise).
+- Every service is `void`: `BaseService<T>` (`service.base`) declares only `execute` and
+  `executeWithoutTransactional`. `AccountServiceBase<R>` fixes the template-method pipeline:
+
+  ```
+  execute(context)  [@Transactional]
+    -> fetch -> validate -> executeBusiness -> persist -> mapResult
+  ```
+
+  Default `persist` saves `context.users` and `context.tenantMappings`; default `mapResult` maps
+  `context.users` to `responseUserProfileDto`. Services override only the steps they need.
+- One strategy per API in `service.strategy`: `RegisterUserService`, `AddTenantService`,
+  `RemoveUserService`, `EditUserService`, `AddRoleService`, `RemoveRoleService`, `GetAllUsersService`,
+  `GetUserService`, `LoginService`.
+- Entity ↔ DTO conversion goes through MapStruct (`mapper.UserMapper`, `mapper.TenantMappingMapper`).
+  `UserProfileDto` has no password field, so no response can leak it. Keep new responses going through
+  the mappers.
+- `UserRepository`, `TenantMappingRepository` — Spring Data repositories, used only from the services and
+  the security layer.
 - `User` (`co.il.attendanceaccounting.model`) → table `users`, with roles as an eager
   `@ElementCollection Set<String>` → table `user_roles`. The id is the caller-supplied `idUser` (a
   national-ID-like number), **not** generated.
 
-Errors are `@ResponseStatus` exceptions in `co.il.attendanceaccounting.exceptions` — `UserExistsException`
-(409), `UserAuthenticationException` (401), `UserNotFoundException` (**400**, not 404). There is no
-`@ControllerAdvice`; add a new `@ResponseStatus` exception instead of a handler class. Note the 400: the
-TimeTracking client maps 404→`NotFoundException`, so a missing user currently reaches it as a generic
-`InternalApiException`.
+Errors are `@ResponseStatus` exceptions in `co.il.attendanceaccounting.exceptions`, with message strings in
+`ErrorConstants` — `UserExistsException` (409), `UserAuthenticationException` (401), `ProtectedUserException`
+(403), `UserNotFoundException` (**400**, not 404). There is no `@ControllerAdvice`; add a new
+`@ResponseStatus` exception instead of a handler class. Note the 400: the TimeTracking client maps
+404→`NotFoundException`, so a missing user currently reaches it as a generic `InternalApiException`.
 
 ### Authentication & JWT minting
 
-`POST /account/login` takes `{idUser, password, tenantId}` (`LoginRequestDto`, a record) and:
+`POST /account/login` takes `{idUser, password, tenantId | companyName}` (`LoginRequestDto`) and runs
+`LoginService`, whose `validate` step calls `AuthenticationService.authenticate(context)`:
 
 1. `AuthenticationServiceImpl` authenticates id+password through the `AuthenticationManager`
    (`DaoAuthenticationProvider` + `UserDetailsServiceImpl` + BCrypt).
@@ -94,7 +108,7 @@ TimeTracking client maps 404→`NotFoundException`, so a missing user currently 
    `Invalid credentials` (401), same as a wrong password, so login can't be used to probe tenants.
 3. `JwtService.mint` builds the token: `sub` = user id, `authorities` claim = the user's roles,
    `tenantId` claim, HS256, TTL from `attendance-accounting.security.jwt.ttl-seconds` (default 3600).
-   The response is `{token, tokenType: "Bearer", expiresIn, profile}`.
+   It puts `{token, tokenType: "Bearer", expiresIn}` on the context; `LoginService.mapResult` adds `profile`.
 
 **Role-string casing is load-bearing.** Roles are stored as free-form strings (`register` assigns
 `"User"`; the seed/bootstrap use `"Administrator"`). `UserDetailsServiceImpl` uppercases them into
@@ -109,17 +123,19 @@ it into anything production-facing.
 
 ### Authorization
 
-All rules live in `SecurityConfiguration.filterChain` (URL-based), not in annotations on the controller:
+Rules are `@PreAuthorize` annotations on the controller methods, as in TimeTracking:
 
-- `POST /account/login` and `POST /account/user` (self-registration) — public.
-- `DELETE /account/user/{idUser}`, `POST|DELETE /account/user/{idUser}/role/{role}` — `ROLE_ADMINISTRATOR`.
-- `PUT /account/user/password/{idUser}` — the user themselves (`@customWebSecurity.checkAuthorityChangePassword`)
-  or an administrator.
-- Everything else — merely authenticated.
+- `removeUser`, `addRole`, `removeRole` — `ROLE_ADMINISTRATOR`.
+- `editUser` (`PUT /account/user/password/{idUser}`) — an administrator or the user themselves
+  (`#idUser.toString() == authentication.name`).
+
+`SecurityConfiguration.filterChain` keeps only the URL-level rules: `POST /account/login`,
+`POST /account/user`, `POST /account/tenant/add`, actuator health and the ERROR dispatch are public;
+everything else must be authenticated. `AccessDeniedHandlerImpl` is kept on purpose, so a 403 body carries
+message `"Forbidden"` (tests assert it). Method security runs after request binding and validation, so a
+malformed request from an unauthorized caller gets 400 rather than 403.
 
 Sessions are stateless, CSRF and CORS are disabled, and the H2 console is excluded from the filter chain.
-`@EnableMethodSecurity` is on, so `@PreAuthorize` would work if a rule is easier to express there — but
-follow the URL-matcher style already used unless there's a reason not to.
 
 ### Persistence
 
@@ -138,8 +154,6 @@ follow the URL-matcher style already used unless there's a reason not to.
   authenticated user here can call `GET /account/users` with no `tenantId` and receive every tenant's
   users, or read another tenant's user by id. The existing tests document this behavior rather than
   forbid it — treat it as an open gap, not an invariant.
-- `UserAccountService.changePassword` is declared and implemented but is not reachable from any endpoint
-  (password changes go through `editUser`).
 - No Kafka/Spring Cloud Stream, no outbound clients to other services, no scheduled jobs here.
 
 ## Testing conventions
@@ -166,8 +180,7 @@ authorization cases in the same style.
 
 - Keep the service thin and single-purpose: accounts, roles, tokens. Business logic belonging to other
   domains goes to the service that owns it.
-- Avoid duplicating logic — reuse `userToUserProfileDto`, the existing exceptions and the test base class
-  instead of copy-pasting.
-- Apply SOLID principles and standard Java/OOP practice (interface + `Impl` per service, single
-  responsibility per class) — follow the idioms already present rather than introducing new ones without
-  reason.
+- Avoid duplicating logic — reuse the mappers, `AccountServiceBase` helpers, the existing exceptions and the
+  test base class instead of copy-pasting.
+- Apply SOLID principles — one strategy service per API operation, single responsibility per class — and
+  follow the idioms already present rather than introducing new ones without reason.
