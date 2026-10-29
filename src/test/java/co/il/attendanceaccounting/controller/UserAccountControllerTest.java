@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Set;
@@ -33,7 +34,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     private static final String TENANT_ADD_URL = ACCOUNT_URL + "/tenant/add";
     private static final Integer NEW_TENANT_ID = 300;
     private static final Integer PROTECTED_ADMIN_ID = 123456789;
-    private static final String PROTECTED_MESSAGE = "user is protected and cannot be deleted";
+    private static final String PROTECTED_MESSAGE = "user is protected and cannot be modified";
+    private static final String LAST_ADMIN_MESSAGE = "tenant must keep at least one administrator";
     private static final String USER_ROLE = "USER";
     private static final String ADMINISTRATOR_ROLE = "ADMINISTRATOR";
     private static final String PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
@@ -42,6 +44,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Autowired
     private AttendanceAccountingApplication application;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Test
     @FlywayTest
@@ -107,7 +112,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
                 null, token);
         assertEquals(HttpStatus.OK, response.getStatusCode(),
                 "Reason: the auto-granted role must survive login into the JWT authorities claim and satisfy hasRole('ADMINISTRATOR')");
-        assertTrue(userRepository.findById(90).orElseThrow().getRoles().contains("Administrator"));
+        assertTrue(userRepository.findById(90).orElseThrow().getRoles().contains(ADMINISTRATOR_ROLE));
     }
 
     @Test
@@ -239,7 +244,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals(USER_TENANT_ID, profile.getTenantId());
         assertEquals(TENANT_100_NAME, profile.getCompanyName(),
                 "Reason: login must resolve the company name from att_ac_tenant_mapping");
-        assertTrue(profile.getRoles().contains("User"));
+        assertTrue(profile.getRoles().contains(USER_ROLE));
     }
 
     @Test
@@ -432,9 +437,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         ResponseEntity<String> response = send(HttpMethod.POST, roleUrl(ADMIN_TENANT_ID, USER_ID, "Administrator"), null, ADMIN_ID, ADMIN_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
-        assertTrue(body.getRoles().contains("Administrator"));
-        assertTrue(body.getRoles().contains("User"));
-        assertTrue(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("Administrator"));
+        assertTrue(body.getRoles().contains(ADMINISTRATOR_ROLE));
+        assertTrue(body.getRoles().contains(USER_ROLE));
+        assertTrue(userRepository.findById(USER_ID).orElseThrow().getRoles().contains(ADMINISTRATOR_ROLE));
     }
 
     @Test
@@ -444,7 +449,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         ResponseEntity<String> response = send(HttpMethod.POST, roleUrl(USER_TENANT_ID, USER_ID, "Administrator"), null, USER_ID, USER_PWD);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
-        assertFalse(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("Administrator"));
+        assertFalse(userRepository.findById(USER_ID).orElseThrow().getRoles().contains(ADMINISTRATOR_ROLE));
     }
 
     @Test
@@ -454,8 +459,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         ResponseEntity<String> response = send(HttpMethod.DELETE, roleUrl(ADMIN_TENANT_ID, USER_ID, "User"), null, ADMIN_ID, ADMIN_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
-        assertFalse(body.getRoles().contains("User"));
-        assertFalse(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("User"));
+        assertFalse(body.getRoles().contains(USER_ROLE));
+        assertFalse(userRepository.findById(USER_ID).orElseThrow().getRoles().contains(USER_ROLE));
     }
 
     @Test
@@ -465,7 +470,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         ResponseEntity<String> response = send(HttpMethod.DELETE, roleUrl(USER_TENANT_ID, USER_ID, "User"), null, USER_ID, USER_PWD);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
-        assertTrue(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("User"));
+        assertTrue(userRepository.findById(USER_ID).orElseThrow().getRoles().contains(USER_ROLE));
     }
 
     @Test
@@ -483,7 +488,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
                 roleUrl(USER_TENANT_ID, USER_ID, "Administrator"), null, token);
         assertEquals(HttpStatus.OK, response.getStatusCode(),
                 "Reason: PLATFORM_ADMIN must imply ADMINISTRATOR through the role hierarchy");
-        assertTrue(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("Administrator"));
+        assertTrue(userRepository.findById(USER_ID).orElseThrow().getRoles().contains(ADMINISTRATOR_ROLE));
     }
 
     @Test
@@ -568,7 +573,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals("Doe", body.getLastName());
         assertEquals(USER_EMAIL, body.getEmail());
         assertEquals(USER_TENANT_ID, body.getTenantId());
-        assertTrue(body.getRoles().contains("User"));
+        assertTrue(body.getRoles().contains(USER_ROLE));
     }
 
     @Test
@@ -652,7 +657,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         ResponseEntity<String> response = send(HttpMethod.POST, roleUrl(ADMIN_TENANT_ID, OTHER_USER_ID, "Administrator"),
                 null, ADMIN_ID, ADMIN_PWD);
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals(Set.of("User"), userRepository.findById(OTHER_USER_ID).orElseThrow().getRoles());
+        assertEquals(Set.of(USER_ROLE), userRepository.findById(OTHER_USER_ID).orElseThrow().getRoles());
     }
 
     @Test
@@ -662,7 +667,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         ResponseEntity<String> response = send(HttpMethod.DELETE, roleUrl(ADMIN_TENANT_ID, OTHER_USER_ID, "User"),
                 null, ADMIN_ID, ADMIN_PWD);
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals(Set.of("User"), userRepository.findById(OTHER_USER_ID).orElseThrow().getRoles());
+        assertEquals(Set.of(USER_ROLE), userRepository.findById(OTHER_USER_ID).orElseThrow().getRoles());
     }
 
     @Test
@@ -733,6 +738,120 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals("Platform", userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow().getFirstName());
         assertFalse(obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, SYSTEM_TENANT_ID).isBlank(),
                 "Reason: the platform admin's password must be unchanged");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/{tenantId}/user/{id}/role/{role} stores the role uppercase whatever case is sent")
+    void addRoleNormalizesCaseTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, roleUrl(ADMIN_TENANT_ID, USER_ID, " administrator "),
+                null, ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), readObject(response, UserProfileDto.class).getRoles());
+        assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), userRepository.findById(USER_ID).orElseThrow().getRoles(),
+                "Reason: roles are stored in one canonical case, so removal and comparison never miss");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/{tenantId}/user/{id}/role/{role} with an unknown role returns 400 and stores nothing")
+    void addUnknownRoleTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, roleUrl(ADMIN_TENANT_ID, USER_ID, "Banana"), null,
+                ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("Role Banana is not allowed", errorMessage(response));
+        assertEquals(Set.of(USER_ROLE), userRepository.findById(USER_ID).orElseThrow().getRoles());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/{tenantId}/user/{id}/role/PLATFORM_ADMIN returns 400 even for the platform admin")
+    void addPlatformAdminRoleTest() throws Exception {
+        String token = platformAdminToken();
+        ResponseEntity<String> response = sendWithToken(HttpMethod.POST,
+                roleUrl(USER_TENANT_ID, USER_ID, "platform_admin"), null, token);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(),
+                "Reason: PLATFORM_ADMIN belongs to the bootstrap account only and is never granted through the API");
+        assertEquals(Set.of(USER_ROLE), userRepository.findById(USER_ID).orElseThrow().getRoles());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/tenant/0/user/{platformAdmin}/role/PLATFORM_ADMIN returns 400 and keeps the role")
+    void removePlatformAdminRoleTest() throws Exception {
+        ResponseEntity<String> response = sendWithToken(HttpMethod.DELETE,
+                roleUrl(SYSTEM_TENANT_ID, PROTECTED_ADMIN_ID, PLATFORM_ADMIN_ROLE), null, platformAdminToken());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(Set.of(PLATFORM_ADMIN_ROLE), userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow().getRoles());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/0/user/{platformAdmin}/role/{role} returns 403 because the account is protected")
+    void changeRolesOfProtectedAccountTest() throws Exception {
+        ResponseEntity<String> response = sendWithToken(HttpMethod.POST,
+                roleUrl(SYSTEM_TENANT_ID, PROTECTED_ADMIN_ID, ADMINISTRATOR_ROLE), null, platformAdminToken());
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals(PROTECTED_MESSAGE, errorMessage(response));
+        assertEquals(Set.of(PLATFORM_ADMIN_ROLE), userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow().getRoles());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/tenant/{tenantId}/user/{id}/role/ADMINISTRATOR removes a role stored in legacy mixed case")
+    void removeLegacyMixedCaseAdministratorTest() {
+        userRepository.save(User.builder().idUser(50).password(passwordEncoder.encode(NEW_USER_PWD))
+                .tenantId(ADMIN_TENANT_ID).role("User").role("Administrator").build());
+
+        ResponseEntity<String> response = send(HttpMethod.DELETE, roleUrl(ADMIN_TENANT_ID, 50, ADMINISTRATOR_ROLE), null,
+                ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(Set.of("User"), userRepository.findById(50).orElseThrow().getRoles(),
+                "Reason: revoking ADMINISTRATOR must also remove a row stored as 'Administrator'");
+
+        String token = obtainToken(50, NEW_USER_PWD, ADMIN_TENANT_ID);
+        ResponseEntity<String> adminCall = sendWithToken(HttpMethod.DELETE, userUrl(ADMIN_TENANT_ID, USER_ID), null, token);
+        assertEquals(HttpStatus.FORBIDDEN, adminCall.getStatusCode(),
+                "Reason: after revocation the next token must no longer carry ADMINISTRATOR");
+        assertTrue(userRepository.existsById(USER_ID));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/tenant/{tenantId}/user/{id}/role/ADMINISTRATOR on the tenant's last admin returns 409")
+    void removeLastAdministratorRoleTest() {
+        ResponseEntity<String> response = send(HttpMethod.DELETE, roleUrl(ADMIN_TENANT_ID, ADMIN_ID, ADMINISTRATOR_ROLE),
+                null, ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode(),
+                "Reason: a tenant must never be left without an administrator");
+        assertEquals(LAST_ADMIN_MESSAGE, errorMessage(response));
+        assertTrue(userRepository.findById(ADMIN_ID).orElseThrow().getRoles().contains(ADMINISTRATOR_ROLE));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/tenant/{tenantId}/user/{id} on the tenant's last admin returns 409 and keeps the user")
+    void deleteLastAdministratorTest() {
+        ResponseEntity<String> response = send(HttpMethod.DELETE, userUrl(ADMIN_TENANT_ID, ADMIN_ID), null, ADMIN_ID,
+                ADMIN_PWD);
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertEquals(LAST_ADMIN_MESSAGE, errorMessage(response));
+        assertTrue(userRepository.existsById(ADMIN_ID));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/tenant/{tenantId}/user/{id}/role/ADMINISTRATOR works once another admin exists")
+    void removeAdministratorWhenAnotherExistsTest() {
+        ResponseEntity<String> granted = send(HttpMethod.POST, roleUrl(ADMIN_TENANT_ID, USER_ID, ADMINISTRATOR_ROLE),
+                null, ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.OK, granted.getStatusCode());
+
+        ResponseEntity<String> response = send(HttpMethod.DELETE, roleUrl(ADMIN_TENANT_ID, ADMIN_ID, ADMINISTRATOR_ROLE),
+                null, ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.OK, response.getStatusCode(),
+                "Reason: the guard only protects the last administrator, not every administrator");
+        assertEquals(Set.of(USER_ROLE), userRepository.findById(ADMIN_ID).orElseThrow().getRoles());
     }
 
     private String platformAdminToken() throws Exception {

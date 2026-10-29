@@ -9,6 +9,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.*;
 
+import static org.apache.commons.lang3.BooleanUtils.isFalse;
+
 @ToString
 @Data
 @AllArgsConstructor
@@ -33,12 +35,16 @@ public class User {
 	@ElementCollection(fetch = FetchType.EAGER)
 	Set<String> roles;
 
-	public boolean addRole(String role) {
-		return roles.add(role);
+	public boolean hasRole(String role) {
+		return roles.stream().anyMatch(role::equalsIgnoreCase);
 	}
 
-	public boolean removeRole(String role) {
-		return roles.remove(role);
+	public boolean addRole(String role) {
+		return isFalse(hasRole(role)) && roles.add(role);
+	}
+
+	public void removeRole(String role) {
+		 roles.removeIf(role::equalsIgnoreCase);
 	}
 
 }

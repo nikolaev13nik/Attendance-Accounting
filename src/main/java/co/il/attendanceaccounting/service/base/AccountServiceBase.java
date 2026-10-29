@@ -5,13 +5,17 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
+import co.il.attendanceaccounting.configuration.AccountConfiguration;
 import co.il.attendanceaccounting.context.AccountContext;
 import co.il.attendanceaccounting.dao.TenantMappingRepository;
 import co.il.attendanceaccounting.dao.UserRepository;
+import co.il.attendanceaccounting.exceptions.LastAdministratorException;
 import co.il.attendanceaccounting.exceptions.UserNotFoundException;
 import co.il.attendanceaccounting.mapper.UserMapper;
 import co.il.attendanceaccounting.model.User;
 import jakarta.transaction.Transactional;
+
+import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
 
 public abstract class AccountServiceBase<R> implements BaseService<R> {
 
@@ -23,6 +27,8 @@ public abstract class AccountServiceBase<R> implements BaseService<R> {
     protected UserMapper userMapper;
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private AccountConfiguration accountConfiguration;
 
     @Transactional
     @Override
@@ -63,6 +69,17 @@ public abstract class AccountServiceBase<R> implements BaseService<R> {
 
     protected User findUserOrThrow(AccountContext<R> context) {
         return findTenantUser(context).orElseThrow(() -> userNotFound(context.getIdUser()));
+    }
+
+    protected boolean isProtectedUser(Integer idUser) {
+        return idUser == accountConfiguration.getBootstrapAdminId();
+    }
+
+    protected void ensureNotLastAdministrator(User user) {
+        if (user.hasRole(ADMINISTRATOR.name())
+                && userRepository.countByTenantIdAndRole(user.getTenantId(), ADMINISTRATOR.name()) <= 1) {
+            throw new LastAdministratorException();
+        }
     }
 
     protected UserNotFoundException userNotFound(Integer idUser) {

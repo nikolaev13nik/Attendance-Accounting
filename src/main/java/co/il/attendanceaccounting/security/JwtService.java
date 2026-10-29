@@ -1,6 +1,5 @@
 package co.il.attendanceaccounting.security;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -13,6 +12,8 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 
+import co.il.attendanceaccounting.configuration.AccountConfiguration;
+
 import static co.il.attendanceaccounting.security.SecurityConstants.AUTHORITIES;
 import static co.il.attendanceaccounting.security.SecurityConstants.TENANT_ID;
 
@@ -21,10 +22,9 @@ public class JwtService {
     private final JwtEncoder jwtEncoder;
     private final long ttlSeconds;
 
-    public JwtService(JwtEncoder jwtEncoder,
-                      @Value("${attendance-accounting.security.jwt.ttl-seconds:3600}") long ttlSeconds) {
+    public JwtService(JwtEncoder jwtEncoder, AccountConfiguration accountConfiguration) {
         this.jwtEncoder = jwtEncoder;
-        this.ttlSeconds = ttlSeconds;
+        this.ttlSeconds = accountConfiguration.getJwtTtlSeconds();
     }
 
     public MintedToken mint(Authentication authentication, Integer tenantId){

@@ -1,6 +1,5 @@
 package co.il.attendanceaccounting.service.strategy;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import co.il.attendanceaccounting.context.AccountContext;
@@ -10,9 +9,6 @@ import co.il.attendanceaccounting.service.base.AccountServiceBase;
 @Service
 public class RemoveUserService extends AccountServiceBase<Void> {
 
-    @Value("${attendance-accounting.bootstrap.admin.id:123456789}")
-    private int protectedAdminId;
-
     @Override
     protected void fetch(AccountContext<Void> context) {
         findTenantUser(context).ifPresent(context.getUsers()::add);
@@ -20,12 +16,13 @@ public class RemoveUserService extends AccountServiceBase<Void> {
 
     @Override
     protected void validate(AccountContext<Void> context) {
-        if (context.getIdUser() == protectedAdminId) {
+        if (isProtectedUser(context.getIdUser())) {
             throw new ProtectedUserException();
         }
         if (context.getUsers().isEmpty()) {
-            throw  userNotFound(context.getIdUser());
+            throw userNotFound(context.getIdUser());
         }
+        ensureNotLastAdministrator(context.getSingleUser());
     }
 
     @Override

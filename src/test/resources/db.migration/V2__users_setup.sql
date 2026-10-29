@@ -17,7 +17,7 @@ INSERT INTO users (id_user, first_name, last_name, password, email, tenant_id) V
  ( 3, 'Jane', 'Roe', '$2a$10$ohqLEbyxwaamlzc0C0L3z.3iUnuhtJMfOu1dlMYhkjheGNNNSXQi6', 'jane.roe@attendance.local', 200 );
 
 INSERT INTO user_roles (user_id_user, roles) VALUES
-                                                 ( 1, 'Administrator' ),
-                                                 ( 1, 'User' ),
-                                                 ( 2, 'User' ),
-                                                 ( 3, 'User' );
+                                                 ( 1, 'ADMINISTRATOR' ),
+                                                 ( 1, 'USER' ),
+                                                 ( 2, 'USER' ),
+                                                 ( 3, 'USER' );

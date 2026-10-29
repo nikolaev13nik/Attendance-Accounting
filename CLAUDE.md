@@ -109,11 +109,16 @@ exception instead of a handler class.
    `tenantId` claim, HS256, TTL from `attendance-accounting.security.jwt.ttl-seconds` (default 3600).
    It puts `{token, tokenType: "Bearer", expiresIn}` on the context; `LoginService.mapResult` adds `profile`.
 
-**Role-string casing is load-bearing.** Roles are stored as free-form strings (`register` assigns
-`"User"`; the test seed uses `"Administrator"`, the bootstrap `"PLATFORM_ADMIN"`). `UserDetailsServiceImpl` uppercases them into
-authorities, so the JWT carries `["USER"]` / `["ADMINISTRATOR"]`, and every service (here and downstream)
-adds the `ROLE_` prefix in its `JwtAuthenticationConverter` before `hasRole(...)` checks. Don't "fix" the
-casing on one side only.
+**Roles are stored uppercase.** Register writes `USER`/`ADMINISTRATOR`, the bootstrap `PLATFORM_ADMIN`, and
+the role endpoints (`RoleServiceBase`) accept only `USER` and `ADMINISTRATOR` in any case and store them
+uppercase; anything else, `PLATFORM_ADMIN` included, is 400 `RoleNotAllowedException`. Older rows may
+still hold `"User"`/`"Administrator"`, so `User.hasRole`/`removeRole` compare ignoring case and
+`UserDetailsServiceImpl` uppercases into authorities. The JWT carries `["USER"]` / `["ADMINISTRATOR"]`, and
+every service adds the `ROLE_` prefix in its `JwtAuthenticationConverter` before `hasRole(...)` checks.
+
+The bootstrap account is protected: deleting it or changing its roles is 403 `ProtectedUserException`.
+A tenant always keeps one administrator: removing `ADMINISTRATOR` from, or deleting, its last admin is
+409 `LastAdministratorException` (`AccountServiceBase.ensureNotLastAdministrator`).
 
 `AttendanceAccountingApplication` is a `CommandLineRunner` that bootstraps the platform admin
 (`idUser 123456789`, password from `ATTENDANCE_ACCOUNTING_BOOTSTRAP_ADMIN_PASSWORD`, role `PLATFORM_ADMIN`

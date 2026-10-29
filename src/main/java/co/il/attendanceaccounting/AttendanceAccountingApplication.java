@@ -2,7 +2,6 @@ package co.il.attendanceaccounting;
 
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -13,6 +12,7 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
+import co.il.attendanceaccounting.configuration.AccountConfiguration;
 import co.il.attendanceaccounting.dao.UserRepository;
 import co.il.attendanceaccounting.model.User;
 import lombok.extern.slf4j.Slf4j;
@@ -30,10 +30,9 @@ public class AttendanceAccountingApplication implements CommandLineRunner{
 
 	@Autowired
 	PasswordEncoder passwordEncoder;
-	@Value("${attendance-accounting.bootstrap.admin.id:123456789}")
-	private int bootstrapAdminId;
-	@Value("${attendance-accounting.bootstrap.admin.password:}")
-	private String bootstrapAdminPassword;
+
+	@Autowired
+	AccountConfiguration accountConfiguration;
 
 
 	public static void main(String[] args) {
@@ -43,6 +42,8 @@ public class AttendanceAccountingApplication implements CommandLineRunner{
 
 	@Override
 	public void run(String... args) throws Exception {
+		int bootstrapAdminId = accountConfiguration.getBootstrapAdminId();
+		String bootstrapAdminPassword = accountConfiguration.getBootstrapAdminPassword();
 
 		if (!StringUtils.hasText(bootstrapAdminPassword)) {
 			throw new IllegalStateException(

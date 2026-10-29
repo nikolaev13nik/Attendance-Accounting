@@ -2,7 +2,6 @@ package co.il.attendanceaccounting.security;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.security.autoconfigure.web.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,6 +32,7 @@ import java.nio.charset.StandardCharsets;
 
 import javax.crypto.spec.SecretKeySpec;
 
+import co.il.attendanceaccounting.configuration.AccountConfiguration;
 import jakarta.servlet.DispatcherType;
 
 import static co.il.attendanceaccounting.security.SecurityConstants.AUTHORITIES;
@@ -46,8 +46,8 @@ import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRole
 public class SecurityConfiguration {
 
 	@Bean
-	SecretKeySpec jwtSecretKey(@Value("${attendance-accounting.security.jwt.secret}") String secret){
-		byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+	SecretKeySpec jwtSecretKey(AccountConfiguration accountConfiguration){
+		byte[] keyBytes = accountConfiguration.getJwtSecret().getBytes(StandardCharsets.UTF_8);
 		if (keyBytes.length <32){
 			throw new IllegalStateException(
 					"attendance-accounting.security.jwt.secret must be at least 32 bytes for HS256");
