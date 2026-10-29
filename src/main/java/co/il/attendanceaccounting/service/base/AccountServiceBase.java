@@ -3,6 +3,8 @@ package co.il.attendanceaccounting.service.base;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.Optional;
+
 import co.il.attendanceaccounting.context.AccountContext;
 import co.il.attendanceaccounting.dao.TenantMappingRepository;
 import co.il.attendanceaccounting.dao.UserRepository;
@@ -55,8 +57,12 @@ public abstract class AccountServiceBase<R> implements BaseService<R> {
         context.setResponseUserProfileDto(userMapper.toDtoList(context.getUsers()));
     }
 
-    protected User findUserOrThrow(Integer idUser) {
-        return userRepository.findById(idUser).orElseThrow(() -> userNotFound(idUser));
+    protected Optional<User> findTenantUser(AccountContext<R> context) {
+        return userRepository.findByIdUserAndTenantId(context.getIdUser(), context.getTenantId());
+    }
+
+    protected User findUserOrThrow(AccountContext<R> context) {
+        return findTenantUser(context).orElseThrow(() -> userNotFound(context.getIdUser()));
     }
 
     protected UserNotFoundException userNotFound(Integer idUser) {

@@ -93,9 +93,8 @@ pipeline.**
 
 Errors are `@ResponseStatus` exceptions in `co.il.attendanceaccounting.exceptions`, with message strings in
 `ErrorConstants` — `UserExistsException` (409), `UserAuthenticationException` (401), `ProtectedUserException`
-(403), `UserNotFoundException` (**400**, not 404). There is no `@ControllerAdvice`; add a new
-`@ResponseStatus` exception instead of a handler class. Note the 400: the TimeTracking client maps
-404→`NotFoundException`, so a missing user currently reaches it as a generic `InternalApiException`.
+(403), `UserNotFoundException` (404). There is no `@ControllerAdvice`; add a new `@ResponseStatus`
+exception instead of a handler class.
 
 ### Authentication & JWT minting
 
@@ -129,8 +128,17 @@ Roles are `USER`, `ADMINISTRATOR` (admin of one tenant) and `PLATFORM_ADMIN` (th
 controller methods, as in TimeTracking:
 
 - `removeUser`, `addRole`, `removeRole` — `ROLE_ADMINISTRATOR`.
-- `editUser` (`PUT /account/user/password/{idUser}`) — an administrator or the user themselves
+- `editUser` (`PUT /account/tenant/{tenantId}/user/password/{idUser}`) — an administrator or the user themselves
   (`#idUser.toString() == authentication.name`).
+
+**Tenant isolation.** Every secured endpoint lives under `/account/tenant/{tenantId}/...`.
+`security.TenantInterceptor` (registered in `security.WebConfig`, mirroring TimeTracking) compares that path
+tenant with the JWT `tenantId` claim and throws `AccessDeniedException` (403 `"Forbidden"`) on a mismatch.
+The one exception is the platform admin: `ROLE_PLATFORM_ADMIN` **and** JWT tenant 0 skips the comparison
+and may name any tenant, including 0 for its own account. The services then look users up with
+`findByIdUserAndTenantId(idUser, pathTenant)` (`AccountServiceBase.findTenantUser*`), so a user of another
+tenant answers exactly like a missing one: 404. New secured endpoints must take `{tenantId}` in the path
+and go through those helpers, never `findById`.
 
 `SecurityConfiguration.filterChain` keeps only the URL-level rules: `POST /account/login`,
 `POST /account/user`, `POST /account/tenant/add`, actuator health and the ERROR dispatch are public;
@@ -153,10 +161,7 @@ Sessions are stateless, CSRF and CORS are disabled, and the H2 console is exclud
 
 ### Known gaps (don't assume these exist)
 
-- **No tenant isolation on reads.** Unlike TimeTracking (which has a `TenantInterceptor`), any
-  authenticated user here can call `GET /account/users` with no `tenantId` and receive every tenant's
-  users, or read another tenant's user by id. The existing tests document this behavior rather than
-  forbid it — treat it as an open gap, not an invariant.
+- `POST /account/user` (register) is still anonymous and accepts any existing tenant.
 - No Kafka/Spring Cloud Stream, no outbound clients to other services, no scheduled jobs here.
 
 ## Testing conventions

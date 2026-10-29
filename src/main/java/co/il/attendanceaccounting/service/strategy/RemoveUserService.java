@@ -15,7 +15,7 @@ public class RemoveUserService extends AccountServiceBase<Void> {
 
     @Override
     protected void fetch(AccountContext<Void> context) {
-        userRepository.findById(context.getIdUser()).ifPresent(context.getUsers()::add);
+        findTenantUser(context).ifPresent(context.getUsers()::add);
     }
 
     @Override
@@ -24,7 +24,7 @@ public class RemoveUserService extends AccountServiceBase<Void> {
             throw new ProtectedUserException();
         }
         if (context.getUsers().isEmpty()) {
-            throw userNotFound(context.getIdUser());
+            throw  userNotFound(context.getIdUser());
         }
     }
 

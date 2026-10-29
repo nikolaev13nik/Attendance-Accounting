@@ -5,7 +5,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -62,40 +61,44 @@ public class UserAccountController implements AccountApi {
 
     @PreAuthorize("hasRole(T(co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
     @Override
-    public ResponseEntity<UserProfileDto> removeUser(@PathVariable Integer idUser) {
-        AccountContext<Void> context = AccountContext.<Void>builder().idUser(idUser).build();
+    public ResponseEntity<UserProfileDto> removeUser(@PathVariable Integer tenantId, @PathVariable Integer idUser) {
+        AccountContext<Void> context = AccountContext.<Void>builder().tenantId(tenantId).idUser(idUser).build();
         removeUserService.execute(context);
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
 
     @PreAuthorize("hasRole(T(co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name()) || #idUser.toString() == authentication.name")
     @Override
-    public ResponseEntity<UserProfileDto> editUser(@PathVariable Integer idUser,
+    public ResponseEntity<UserProfileDto> editUser(@PathVariable Integer tenantId, @PathVariable Integer idUser,
                                                    @RequestBody UserEditDto userEditDto) {
         AccountContext<UserEditDto> context = AccountContext.<UserEditDto>builder()
-                .idUser(idUser).task(userEditDto).build();
+                .tenantId(tenantId).idUser(idUser).task(userEditDto).build();
         editUserService.execute(context);
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
 
     @PreAuthorize("hasRole(T(co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
     @Override
-    public ResponseEntity<UserProfileDto> addRole(@PathVariable Integer idUser, @PathVariable String role) {
-        AccountContext<Void> context = AccountContext.<Void>builder().idUser(idUser).role(role).build();
+    public ResponseEntity<UserProfileDto> addRole(@PathVariable Integer tenantId, @PathVariable Integer idUser,
+                                                  @PathVariable String role) {
+        AccountContext<Void> context = AccountContext.<Void>builder().tenantId(tenantId).idUser(idUser).role(role)
+                .build();
         addRoleService.execute(context);
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
 
     @PreAuthorize("hasRole(T(co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
     @Override
-    public ResponseEntity<UserProfileDto> removeRole(@PathVariable Integer idUser, @PathVariable String role) {
-        AccountContext<Void> context = AccountContext.<Void>builder().idUser(idUser).role(role).build();
+    public ResponseEntity<UserProfileDto> removeRole(@PathVariable Integer tenantId, @PathVariable Integer idUser,
+                                                  @PathVariable String role) {
+        AccountContext<Void> context = AccountContext.<Void>builder().tenantId(tenantId).idUser(idUser).role(role)
+                .build();
         removeRoleService.execute(context);
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
 
     @Override
-    public ResponseEntity<List<UserProfileDto>> getAllUsers(@RequestParam(required = false) Integer tenantId) {
+    public ResponseEntity<List<UserProfileDto>> getAllUsers(@PathVariable Integer tenantId) {
         AccountContext<Void> context = AccountContext.<Void>builder().tenantId(tenantId).build();
         getAllUsersService.execute(context);
         return ResponseEntity.ok(context.getResponseUserProfileDto());

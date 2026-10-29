@@ -10,7 +10,6 @@ public class GetUserService extends AccountServiceBase<Void> {
 
     @Override
     protected void fetch(AccountContext<Void> context) {
-        context.getUsers().add(userRepository.findByIdUserAndTenantId(context.getIdUser(), context.getTenantId())
-                .orElseThrow(() -> userNotFound(context.getIdUser())));
+        context.getUsers().add(findUserOrThrow(context));
     }
 }

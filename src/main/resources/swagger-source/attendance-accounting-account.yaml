@@ -25,6 +25,19 @@ securityDefinitions:
 security:
   - bearerAuth: []
 
+parameters:
+
+  TenantIdPath:
+    name: tenantId
+    in: path
+    description: |
+      Tenant to act on. It must equal the caller's JWT tenant (403 otherwise), except for the platform admin,
+      whose JWT tenant is 0 and who may name any tenant.
+    required: true
+    type: integer
+    format: int32
+    minimum: 0
+
 paths:
 
   /account/login:
@@ -81,13 +94,14 @@ paths:
         '500':
           $ref: '#/responses/500-InternalServerError'
 
-  /account/user/{idUser}:
+  /account/tenant/{tenantId}/user/{idUser}:
     delete:
       summary: Removes a user
       operationId: removeUser
       tags:
         - Account
       parameters:
+        - $ref: '#/parameters/TenantIdPath'
         - name: idUser
           in: path
           description: |
@@ -108,16 +122,19 @@ paths:
           $ref: '#/responses/401-Unauthorized'
         '403':
           $ref: '#/responses/403-Forbidden'
+        '404':
+          $ref: '#/responses/404-NotFound'
         '500':
           $ref: '#/responses/500-InternalServerError'
 
-  /account/user/password/{idUser}:
+  /account/tenant/{tenantId}/user/password/{idUser}:
     put:
       summary: Updates a user's profile and/or password
       operationId: editUser
       tags:
         - Account
       parameters:
+        - $ref: '#/parameters/TenantIdPath'
         - name: idUser
           in: path
           description: |
@@ -145,16 +162,19 @@ paths:
           $ref: '#/responses/401-Unauthorized'
         '403':
           $ref: '#/responses/403-Forbidden'
+        '404':
+          $ref: '#/responses/404-NotFound'
         '500':
           $ref: '#/responses/500-InternalServerError'
 
-  /account/user/{idUser}/role/{role}:
+  /account/tenant/{tenantId}/user/{idUser}/role/{role}:
     post:
       summary: Adds a role to a user
       operationId: addRole
       tags:
         - Account
       parameters:
+        - $ref: '#/parameters/TenantIdPath'
         - name: idUser
           in: path
           description: |
@@ -181,6 +201,8 @@ paths:
           $ref: '#/responses/401-Unauthorized'
         '403':
           $ref: '#/responses/403-Forbidden'
+        '404':
+          $ref: '#/responses/404-NotFound'
         '500':
           $ref: '#/responses/500-InternalServerError'
 
@@ -190,6 +212,7 @@ paths:
       tags:
         - Account
       parameters:
+        - $ref: '#/parameters/TenantIdPath'
         - name: idUser
           in: path
           description: |
@@ -216,33 +239,33 @@ paths:
           $ref: '#/responses/401-Unauthorized'
         '403':
           $ref: '#/responses/403-Forbidden'
+        '404':
+          $ref: '#/responses/404-NotFound'
         '500':
           $ref: '#/responses/500-InternalServerError'
 
-  /account/users:
+  /account/tenant/{tenantId}/users:
     get:
-      summary: Lists all users
+      summary: Lists the users of one tenant
       operationId: getAllUsers
       tags:
         - Account
       parameters:
-        - name: tenantId
-          in: query
-          description: |
-            When provided, only users belonging to this tenant are returned
-          required: false
-          type: integer
-          format: int32
+        - $ref: '#/parameters/TenantIdPath'
       responses:
         '200':
           description: |
-            All user profiles, or users of the given tenant when tenantId is provided
+            User profiles of the tenant
           schema:
             type: array
             items:
               $ref: '#/definitions/UserProfileDto'
+        '400':
+          $ref: '#/responses/400-BadRequest'
         '401':
           $ref: '#/responses/401-Unauthorized'
+        '403':
+          $ref: '#/responses/403-Forbidden'
         '500':
           $ref: '#/responses/500-InternalServerError'
 
@@ -281,14 +304,7 @@ paths:
       tags:
         - Account
       parameters:
-        - name: tenantId
-          in: path
-          description: |
-            Identifier of the tenant the user belongs to
-          required: true
-          type: integer
-          format: int32
-          minimum: 1
+        - $ref: '#/parameters/TenantIdPath'
         - name: idUser
           in: path
           description: |
@@ -307,6 +323,10 @@ paths:
           $ref: '#/responses/400-BadRequest'
         '401':
           $ref: '#/responses/401-Unauthorized'
+        '403':
+          $ref: '#/responses/403-Forbidden'
+        '404':
+          $ref: '#/responses/404-NotFound'
         '500':
           $ref: '#/responses/500-InternalServerError'
 
@@ -589,6 +609,12 @@ responses:
   403-Forbidden:
     description: |
       Forbidden - the authenticated user is not allowed to perform this operation.
+    schema:
+      $ref: '#/definitions/ApiError'
+
+  404-NotFound:
+    description: |
+      Not Found - the user does not exist in the target tenant.
     schema:
       $ref: '#/definitions/ApiError'
 

@@ -10,7 +10,7 @@ public class RemoveRoleService extends AccountServiceBase<Void> {
 
     @Override
     protected void fetch(AccountContext<Void> context) {
-        context.getUsers().add(findUserOrThrow(context.getIdUser()));
+        context.getUsers().add(findUserOrThrow(context));
     }
 
     @Override

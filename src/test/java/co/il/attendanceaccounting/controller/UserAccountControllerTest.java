@@ -27,9 +27,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     private static final String ACCOUNT_URL = "/account";
     private static final String USER_URL = ACCOUNT_URL + "/user";
-    private static final String USER_PASSWORD_URL = USER_URL + "/password/";
     private static final String LOGIN_URL = ACCOUNT_URL + "/login";
-    private static final String USERS_URL = ACCOUNT_URL + "/users";
+    private static final String TENANT_URL = ACCOUNT_URL + "/tenant/";
     private static final String ROLE_URL = "/role/";
     private static final String TENANT_ADD_URL = ACCOUNT_URL + "/tenant/add";
     private static final Integer NEW_TENANT_ID = 300;
@@ -104,7 +103,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals(HttpStatus.CREATED, member.getStatusCode());
 
         String token = obtainToken(91, NEW_USER_PWD, NEW_TENANT_ID);
-        ResponseEntity<String> response = sendWithToken(HttpMethod.POST, USER_URL + "/" + 90 + ROLE_URL + "Administrator",
+        ResponseEntity<String> response = sendWithToken(HttpMethod.POST, roleUrl(NEW_TENANT_ID, 90, "Administrator"),
                 null, token);
         assertEquals(HttpStatus.OK, response.getStatusCode(),
                 "Reason: the auto-granted role must survive login into the JWT authorities claim and satisfy hasRole('ADMINISTRATOR')");
@@ -114,9 +113,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @Test
     @FlywayTest
     @DisplayName("POST /account/user into a tenant whose users were all removed grants administrator again")
-    void registerIntoEmptiedTenantTest() {
-        ResponseEntity<String> deleted = send(HttpMethod.DELETE, USER_URL + "/" + OTHER_USER_ID, null, ADMIN_ID,
-                ADMIN_PWD);
+    void registerIntoEmptiedTenantTest() throws Exception {
+        ResponseEntity<String> deleted = sendWithToken(HttpMethod.DELETE,
+                userUrl(OTHER_USER_TENANT_ID, OTHER_USER_ID), null, platformAdminToken());
         assertEquals(HttpStatus.OK, deleted.getStatusCode());
         assertFalse(userRepository.existsById(OTHER_USER_ID));
 
@@ -302,23 +301,23 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("DELETE /account/user/{id} as admin removes the user")
+    @DisplayName("DELETE /account/tenant/{tenantId}/user/{id} as admin removes a user of the admin's tenant")
     void deleteUserAsAdminTest() {
-        ResponseEntity<String> response = send(HttpMethod.DELETE, USER_URL + "/" + OTHER_USER_ID, null, ADMIN_ID, ADMIN_PWD);
+        ResponseEntity<String> response = send(HttpMethod.DELETE, userUrl(ADMIN_TENANT_ID, USER_ID), null, ADMIN_ID, ADMIN_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
-        assertEquals(OTHER_USER_ID, body.getIdUser().intValue());
-        assertEquals("Jane", body.getFirstName());
-        assertEquals("Roe", body.getLastName());
-        assertEquals(OTHER_USER_EMAIL, body.getEmail());
-        assertFalse(userRepository.existsById(OTHER_USER_ID));
+        assertEquals(USER_ID, body.getIdUser().intValue());
+        assertEquals("John", body.getFirstName());
+        assertEquals("Doe", body.getLastName());
+        assertEquals(USER_EMAIL, body.getEmail());
+        assertFalse(userRepository.existsById(USER_ID));
     }
 
     @Test
     @FlywayTest
-    @DisplayName("DELETE /account/user/{id} as non-admin returns 403 and keeps the user")
+    @DisplayName("DELETE /account/tenant/{tenantId}/user/{id} as non-admin returns 403 and keeps the user")
     void deleteUserForbiddenTest() {
-        ResponseEntity<String> response = send(HttpMethod.DELETE, USER_URL + "/" + OTHER_USER_ID, null, USER_ID, USER_PWD);
+        ResponseEntity<String> response = send(HttpMethod.DELETE, userUrl(USER_TENANT_ID, OTHER_USER_ID), null, USER_ID, USER_PWD);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
         assertTrue(userRepository.existsById(OTHER_USER_ID));
@@ -326,18 +325,18 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("DELETE /account/user/{id} for a missing user (admin) returns 400")
+    @DisplayName("DELETE /account/tenant/{tenantId}/user/{id} for a missing user (admin) returns 404")
     void deleteUserMissingTest() {
-        ResponseEntity<String> response = send(HttpMethod.DELETE, USER_URL + "/987654", null, ADMIN_ID, ADMIN_PWD);
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        ResponseEntity<String> response = send(HttpMethod.DELETE, userUrl(ADMIN_TENANT_ID, 987654), null, ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertEquals("User with login = 987654 not found", errorMessage(response));
     }
 
     @Test
     @FlywayTest
-    @DisplayName("DELETE /account/user/{id} for the bootstrap super-admin returns 403 even as admin, and 403 not 400 when absent")
+    @DisplayName("DELETE /account/tenant/{tenantId}/user/{id} for the bootstrap super-admin returns 403 even as admin, and 403 not 400 when absent")
     void deleteProtectedAdminTest() {
-        ResponseEntity<String> response = send(HttpMethod.DELETE, USER_URL + "/" + PROTECTED_ADMIN_ID, null, ADMIN_ID,
+        ResponseEntity<String> response = send(HttpMethod.DELETE, userUrl(USER_TENANT_ID, PROTECTED_ADMIN_ID), null, ADMIN_ID,
                 ADMIN_PWD);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode(),
                 "Reason: the protected id is rejected before the existence lookup, so the response never reveals whether the super-admin exists");
@@ -346,14 +345,14 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("DELETE /account/user/{id} for the bootstrap super-admin keeps the existing row")
+    @DisplayName("DELETE /account/tenant/{tenantId}/user/{id} for the bootstrap super-admin keeps the existing row")
     void deleteProtectedAdminKeepsRowTest() {
         ResponseEntity<String> created = send(HttpMethod.POST, USER_URL,
                 createUserRegisterDto(PROTECTED_ADMIN_ID, "pw", "Super", "Admin", "super.admin@example.com",
                         NEW_TENANT_ID), null, null);
         assertEquals(HttpStatus.CREATED, created.getStatusCode());
 
-        ResponseEntity<String> response = send(HttpMethod.DELETE, USER_URL + "/" + PROTECTED_ADMIN_ID, null, ADMIN_ID,
+        ResponseEntity<String> response = send(HttpMethod.DELETE, userUrl(USER_TENANT_ID, PROTECTED_ADMIN_ID), null, ADMIN_ID,
                 ADMIN_PWD);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(PROTECTED_MESSAGE, errorMessage(response));
@@ -363,9 +362,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("DELETE /account/user/{id} still removes an ordinary user when a protected id exists")
+    @DisplayName("DELETE /account/tenant/{tenantId}/user/{id} still removes an ordinary user when a protected id exists")
     void deleteOrdinaryUserStillWorksTest() {
-        ResponseEntity<String> response = send(HttpMethod.DELETE, USER_URL + "/" + USER_ID, null, ADMIN_ID, ADMIN_PWD);
+        ResponseEntity<String> response = send(HttpMethod.DELETE, userUrl(ADMIN_TENANT_ID, USER_ID), null, ADMIN_ID, ADMIN_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertFalse(userRepository.existsById(USER_ID),
                 "Reason: protection must apply to the configured id only, not to deletion in general");
@@ -373,9 +372,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("PUT /account/user/password/{id} as the same user updates the profile")
+    @DisplayName("PUT /account/tenant/{tenantId}/user/password/{id} as the same user updates the profile")
     void editUserSelfTest() {
-        ResponseEntity<String> response = send(HttpMethod.PUT, USER_PASSWORD_URL + USER_ID, createUserEditDto("Johnny", null, null, null), USER_ID, USER_PWD);
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(USER_TENANT_ID, USER_ID), createUserEditDto("Johnny", null, null, null), USER_ID, USER_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
         assertEquals("Johnny", body.getFirstName());
@@ -384,9 +383,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("PUT/account/user/password/{id} for another user (non-admin) returns 403")
+    @DisplayName("PUT /account/tenant/{tenantId}/user/password/{id} for another user (non-admin) returns 403")
     void editUserForbiddenTest() {
-        ResponseEntity<String> response = send(HttpMethod.PUT, USER_PASSWORD_URL + OTHER_USER_ID, createUserEditDto("Hacker", null, null, null), USER_ID, USER_PWD);
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(USER_TENANT_ID, OTHER_USER_ID), createUserEditDto("Hacker", null, null, null), USER_ID, USER_PWD);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
         assertEquals("Jane", userRepository.findById(OTHER_USER_ID).orElseThrow().getFirstName());
@@ -394,9 +393,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("PUT /account/user/password/{id} as the same user updates the email")
+    @DisplayName("PUT /account/tenant/{tenantId}/user/password/{id} as the same user updates the email")
     void editUserEmailTest() {
-        ResponseEntity<String> response = send(HttpMethod.PUT, USER_PASSWORD_URL + USER_ID, createUserEditDto(null, null, null, "john.new@example.com"), USER_ID, USER_PWD);
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(USER_TENANT_ID, USER_ID), createUserEditDto(null, null, null, "john.new@example.com"), USER_ID, USER_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
         assertEquals("john.new@example.com", body.getEmail());
@@ -405,22 +404,22 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("PUT /account/user/password/{id} with a malformed email returns 400 and keeps the original email")
+    @DisplayName("PUT /account/tenant/{tenantId}/user/password/{id} with a malformed email returns 400 and keeps the original email")
     void editUserInvalidEmailTest() {
-        ResponseEntity<String> response = send(HttpMethod.PUT, USER_PASSWORD_URL + USER_ID, createUserEditDto(null, null, null, "not-an-email"), USER_ID, USER_PWD);
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(USER_TENANT_ID, USER_ID), createUserEditDto(null, null, null, "not-an-email"), USER_ID, USER_PWD);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(USER_EMAIL, userRepository.findById(USER_ID).orElseThrow().getEmail());
     }
 
     @Test
     @FlywayTest
-    @DisplayName("PUT /account/user/password/{id} for a missing user (admin) returns 400")
+    @DisplayName("PUT /account/tenant/{tenantId}/user/password/{id} for a missing user (admin) returns 404")
     void editUserMissingTest() {
         long usersBefore = userRepository.count();
-        ResponseEntity<String> response = send(HttpMethod.PUT, USER_PASSWORD_URL + 987654,
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(ADMIN_TENANT_ID, 987654),
                 createUserEditDto("Ghost", null, null, null), ADMIN_ID, ADMIN_PWD);
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(),
-                "Reason: a missing user is a client error, not an unhandled server failure");
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode(),
+                "Reason: a missing user is reported as not found, not as an unhandled server failure");
         assertEquals("User with login = 987654 not found", errorMessage(response));
         assertFalse(userRepository.existsById(987654));
         assertEquals(usersBefore, userRepository.count());
@@ -428,9 +427,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user/{id}/role/{role} as admin adds the role")
+    @DisplayName("POST /account/tenant/{tenantId}/user/{id}/role/{role} as admin adds the role")
     void addRoleAsAdminTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL + "/" + USER_ID + ROLE_URL + "Administrator", null, ADMIN_ID, ADMIN_PWD);
+        ResponseEntity<String> response = send(HttpMethod.POST, roleUrl(ADMIN_TENANT_ID, USER_ID, "Administrator"), null, ADMIN_ID, ADMIN_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
         assertTrue(body.getRoles().contains("Administrator"));
@@ -440,9 +439,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user/{id}/role/{role} as non-admin returns 403")
+    @DisplayName("POST /account/tenant/{tenantId}/user/{id}/role/{role} as non-admin returns 403")
     void addRoleForbiddenTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL + "/" + USER_ID + ROLE_URL + "Administrator", null, USER_ID, USER_PWD);
+        ResponseEntity<String> response = send(HttpMethod.POST, roleUrl(USER_TENANT_ID, USER_ID, "Administrator"), null, USER_ID, USER_PWD);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
         assertFalse(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("Administrator"));
@@ -450,9 +449,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("DELETE /account/user/{id}/role/{role} as admin removes the role")
+    @DisplayName("DELETE /account/tenant/{tenantId}/user/{id}/role/{role} as admin removes the role")
     void removeRoleAsAdminTest() {
-        ResponseEntity<String> response = send(HttpMethod.DELETE, USER_URL + "/" + USER_ID + ROLE_URL + "User", null, ADMIN_ID, ADMIN_PWD);
+        ResponseEntity<String> response = send(HttpMethod.DELETE, roleUrl(ADMIN_TENANT_ID, USER_ID, "User"), null, ADMIN_ID, ADMIN_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
         assertFalse(body.getRoles().contains("User"));
@@ -461,9 +460,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("DELETE /account/user/{id}/role/{role} as non-admin returns 403")
+    @DisplayName("DELETE /account/tenant/{tenantId}/user/{id}/role/{role} as non-admin returns 403")
     void removeRoleForbiddenTest() {
-        ResponseEntity<String> response = send(HttpMethod.DELETE, USER_URL + "/" + USER_ID + ROLE_URL + "User", null, USER_ID, USER_PWD);
+        ResponseEntity<String> response = send(HttpMethod.DELETE, roleUrl(USER_TENANT_ID, USER_ID, "User"), null, USER_ID, USER_PWD);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
         assertTrue(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("User"));
@@ -481,7 +480,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
         String token = obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, SYSTEM_TENANT_ID);
         ResponseEntity<String> response = sendWithToken(HttpMethod.POST,
-                USER_URL + "/" + USER_ID + ROLE_URL + "Administrator", null, token);
+                roleUrl(USER_TENANT_ID, USER_ID, "Administrator"), null, token);
         assertEquals(HttpStatus.OK, response.getStatusCode(),
                 "Reason: PLATFORM_ADMIN must imply ADMINISTRATOR through the role hierarchy");
         assertTrue(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("Administrator"));
@@ -505,66 +504,53 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("GET /account/users returns the seeded users")
+    @DisplayName("GET /account/tenant/{tenantId}/users returns only that tenant's users")
     void getAllUsersTest() {
-        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL, null, USER_ID, USER_PWD);
+        ResponseEntity<String> response = send(HttpMethod.GET, usersUrl(USER_TENANT_ID), null, USER_ID, USER_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         List<UserProfileDto> users = readList(response, UserProfileDto.class);
         List<Integer> ids = users.stream().map(UserProfileDto::getIdUser).toList();
-        assertEquals((int) userRepository.count(), users.size());
-        assertTrue(ids.containsAll(List.of(ADMIN_ID, USER_ID, OTHER_USER_ID)));
+        assertEquals(2, users.size());
+        assertTrue(ids.containsAll(List.of(ADMIN_ID, USER_ID)));
+        assertFalse(ids.contains(OTHER_USER_ID), "Reason: another tenant's users must never be listed");
+        assertTrue(users.stream().allMatch(u -> USER_TENANT_ID.equals(u.getTenantId())));
         assertEquals(USER_EMAIL, users.stream().filter(u -> u.getIdUser().equals(USER_ID)).findFirst().orElseThrow().getEmail());
         assertEquals(ADMIN_EMAIL, users.stream().filter(u -> u.getIdUser().equals(ADMIN_ID)).findFirst().orElseThrow().getEmail());
     }
 
     @Test
     @FlywayTest
-    @DisplayName("GET /account/users never exposes the password field")
+    @DisplayName("GET /account/tenant/{tenantId}/users never exposes the password field")
     void getAllUsersNoPasswordTest() {
-        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL, null, USER_ID, USER_PWD);
+        ResponseEntity<String> response = send(HttpMethod.GET, usersUrl(USER_TENANT_ID), null, USER_ID, USER_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         json(response).forEach(node -> assertFalse(node.has("password"), "Reason: profile must not leak the password"));
     }
 
     @Test
     @FlywayTest
-    @DisplayName("GET /account/users without a token returns 401 UNAUTHORIZED")
+    @DisplayName("GET /account/tenant/{tenantId}/users without a token returns 401 UNAUTHORIZED")
     void getAllUsersUnauthorizedTest() {
-        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL, null, null, null);
+        ResponseEntity<String> response = send(HttpMethod.GET, usersUrl(USER_TENANT_ID), null, null, null);
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
     @Test
     @FlywayTest
-    @DisplayName("GET /account/users?tenantId=100 as a non-admin returns only that tenant's users")
-    void getAllUsersByTenantIdTest() {
-        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL + "?tenantId=" + USER_TENANT_ID, null, USER_ID, USER_PWD);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        List<UserProfileDto> users = readList(response, UserProfileDto.class);
-        List<Integer> ids = users.stream().map(UserProfileDto::getIdUser).toList();
-        assertEquals(2, users.size());
-        assertTrue(ids.containsAll(List.of(ADMIN_ID, USER_ID)));
-        assertFalse(ids.contains(OTHER_USER_ID));
-        assertTrue(users.stream().allMatch(u -> USER_TENANT_ID.equals(u.getTenantId())));
-    }
-
-    @Test
-    @FlywayTest
-    @DisplayName("GET /account/users?tenantId=200 returns only that tenant's users")
+    @DisplayName("GET /account/tenant/200/users by a tenant-100 user returns 403")
     void getAllUsersByOtherTenantIdTest() {
-        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL + "?tenantId=" + OTHER_USER_TENANT_ID, null, USER_ID, USER_PWD);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        List<UserProfileDto> users = readList(response, UserProfileDto.class);
-        assertEquals(1, users.size());
-        assertEquals(OTHER_USER_ID, users.get(0).getIdUser());
-        assertEquals(OTHER_USER_TENANT_ID, users.get(0).getTenantId());
+        ResponseEntity<String> response = send(HttpMethod.GET, usersUrl(OTHER_USER_TENANT_ID), null, USER_ID, USER_PWD);
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode(),
+                "Reason: the path tenant must match the JWT tenant");
+        assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
     }
 
     @Test
     @FlywayTest
-    @DisplayName("GET /account/users?tenantId=999 returns an empty list")
-    void getAllUsersUnknownTenantIdTest() {
-        ResponseEntity<String> response = send(HttpMethod.GET, USERS_URL + "?tenantId=999", null, USER_ID, USER_PWD);
+    @DisplayName("GET /account/tenant/999/users as the platform admin returns an empty list")
+    void getAllUsersUnknownTenantIdTest() throws Exception {
+        ResponseEntity<String> response = sendWithToken(HttpMethod.GET, usersUrl(UNKNOWN_TENANT_ID), null,
+                platformAdminToken());
         assertEquals(HttpStatus.OK, response.getStatusCode());
         List<UserProfileDto> users = readList(response, UserProfileDto.class);
         assertTrue(users.isEmpty());
@@ -587,19 +573,30 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("GET /account/tenant/{tenantId}/userId/{idUser} with a mismatched tenant returns 400")
+    @DisplayName("GET /account/tenant/{tenantId}/userId/{idUser} with a tenant other than the caller's returns 403")
     void getUserByTenantAndIdWrongTenantTest() {
-        ResponseEntity<String> response = send(HttpMethod.GET, userByTenantUrl(OTHER_USER_TENANT_ID, USER_ID), null, USER_ID, USER_PWD);
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals("User with login = " + USER_ID + " not found", errorMessage(response));
+        ResponseEntity<String> response = send(HttpMethod.GET, userByTenantUrl(OTHER_USER_TENANT_ID, OTHER_USER_ID), null, USER_ID, USER_PWD);
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode(),
+                "Reason: the path tenant must match the JWT tenant, as in TimeTracking");
+        assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
     }
 
     @Test
     @FlywayTest
-    @DisplayName("GET /account/tenant/{tenantId}/userId/{idUser} for a missing user returns 400")
+    @DisplayName("GET /account/tenant/{tenantId}/userId/{idUser} for a user of another tenant returns 404")
+    void getUserByTenantAndIdUserOfOtherTenantTest() {
+        ResponseEntity<String> response = send(HttpMethod.GET, userByTenantUrl(USER_TENANT_ID, OTHER_USER_ID), null, USER_ID, USER_PWD);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode(),
+                "Reason: a user outside the caller's tenant must look exactly like a missing user");
+        assertEquals("User with login = " + OTHER_USER_ID + " not found", errorMessage(response));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("GET /account/tenant/{tenantId}/userId/{idUser} for a missing user returns 404")
     void getUserByTenantAndIdMissingTest() {
         ResponseEntity<String> response = send(HttpMethod.GET, userByTenantUrl(USER_TENANT_ID, 987654), null, USER_ID, USER_PWD);
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertEquals("User with login = 987654 not found", errorMessage(response));
     }
 
@@ -611,8 +608,156 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/tenant/{own}/user/{id} by an admin for a user of another tenant returns 404 and keeps the user")
+    void deleteUserOfOtherTenantAsAdminTest() {
+        ResponseEntity<String> response = send(HttpMethod.DELETE, userUrl(ADMIN_TENANT_ID, OTHER_USER_ID), null, ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode(),
+                "Reason: an admin acts only inside its own tenant, and other tenants' users look missing");
+        assertEquals("User with login = " + OTHER_USER_ID + " not found", errorMessage(response));
+        assertTrue(userRepository.existsById(OTHER_USER_ID));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/tenant/200/user/{id} by a tenant-100 admin returns 403 and keeps the user")
+    void deleteUserNamingOtherTenantAsAdminTest() {
+        ResponseEntity<String> response = send(HttpMethod.DELETE,
+                userUrl(OTHER_USER_TENANT_ID, OTHER_USER_ID), null, ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode(),
+                "Reason: only the platform admin may name a tenant other than its JWT tenant");
+        assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
+        assertTrue(userRepository.existsById(OTHER_USER_ID));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("PUT /account/tenant/{own}/user/password/{id} by an admin for a user of another tenant returns 404 and changes nothing")
+    void editUserOfOtherTenantAsAdminTest() {
+        String passwordBefore = userRepository.findById(OTHER_USER_ID).orElseThrow().getPassword();
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(ADMIN_TENANT_ID, OTHER_USER_ID),
+                createUserEditDto("Hacked", null, "new-password", null), ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        User other = userRepository.findById(OTHER_USER_ID).orElseThrow();
+        assertEquals("Jane", other.getFirstName());
+        assertEquals(passwordBefore, other.getPassword(),
+                "Reason: an admin of another tenant must not be able to reset this user's password");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/{own}/user/{id}/role/{role} by an admin for a user of another tenant returns 404 and keeps the roles")
+    void addRoleOfOtherTenantAsAdminTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, roleUrl(ADMIN_TENANT_ID, OTHER_USER_ID, "Administrator"),
+                null, ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals(Set.of("User"), userRepository.findById(OTHER_USER_ID).orElseThrow().getRoles());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/tenant/{own}/user/{id}/role/{role} by an admin for a user of another tenant returns 404 and keeps the roles")
+    void removeRoleOfOtherTenantAsAdminTest() {
+        ResponseEntity<String> response = send(HttpMethod.DELETE, roleUrl(ADMIN_TENANT_ID, OTHER_USER_ID, "User"),
+                null, ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals(Set.of("User"), userRepository.findById(OTHER_USER_ID).orElseThrow().getRoles());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/tenant/200/user/{id} as the platform admin removes that tenant's user")
+    void deleteUserAsPlatformAdminTest() throws Exception {
+        ResponseEntity<String> response = sendWithToken(HttpMethod.DELETE,
+                userUrl(OTHER_USER_TENANT_ID, OTHER_USER_ID), null, platformAdminToken());
+        assertEquals(HttpStatus.OK, response.getStatusCode(),
+                "Reason: the platform admin may act on any tenant it names");
+        assertFalse(userRepository.existsById(OTHER_USER_ID));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("DELETE /account/tenant/{t}/user/{id} as the platform admin naming the wrong tenant returns 404 and keeps the user")
+    void deleteUserAsPlatformAdminWrongTenantTest() throws Exception {
+        ResponseEntity<String> response = sendWithToken(HttpMethod.DELETE,
+                userUrl(USER_TENANT_ID, OTHER_USER_ID), null, platformAdminToken());
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode(),
+                "Reason: the user is looked up inside the named tenant only");
+        assertTrue(userRepository.existsById(OTHER_USER_ID));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("PUT /account/tenant/0/user/password/{id} lets the platform admin edit its own profile")
+    void editSelfAsPlatformAdminTest() throws Exception {
+        ResponseEntity<String> response = sendWithToken(HttpMethod.PUT,
+                passwordUrl(SYSTEM_TENANT_ID, PROTECTED_ADMIN_ID),
+                createUserEditDto("Support", null, null, null), platformAdminToken());
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("Support", userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow().getFirstName());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("GET /account/tenant/200/users as the platform admin returns that tenant's users")
+    void getAllUsersAsPlatformAdminTest() throws Exception {
+        ResponseEntity<String> response = sendWithToken(HttpMethod.GET, usersUrl(OTHER_USER_TENANT_ID),
+                null, platformAdminToken());
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        List<UserProfileDto> users = readList(response, UserProfileDto.class);
+        assertEquals(1, users.size());
+        assertEquals(OTHER_USER_ID, users.get(0).getIdUser());
+        assertEquals(OTHER_USER_TENANT_ID, users.get(0).getTenantId());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("GET /account/tenant/{tenantId}/userId/{idUser} as the platform admin returns a user of any tenant")
+    void getUserAsPlatformAdminTest() throws Exception {
+        ResponseEntity<String> response = sendWithToken(HttpMethod.GET, userByTenantUrl(OTHER_USER_TENANT_ID, OTHER_USER_ID),
+                null, platformAdminToken());
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(OTHER_USER_ID, readObject(response, UserProfileDto.class).getIdUser());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("PUT /account/tenant/0/user/password/{platformAdmin} by a tenant admin returns 403 and keeps the platform admin")
+    void editPlatformAdminAsTenantAdminTest() throws Exception {
+        application.run();
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(SYSTEM_TENANT_ID, PROTECTED_ADMIN_ID),
+                createUserEditDto("Owned", null, "attacker-password", null), ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode(),
+                "Reason: tenant 0 is the system tenant, only the platform admin's own JWT carries it");
+        assertEquals("Platform", userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow().getFirstName());
+        assertFalse(obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, SYSTEM_TENANT_ID).isBlank(),
+                "Reason: the platform admin's password must be unchanged");
+    }
+
+    private String platformAdminToken() throws Exception {
+        application.run();
+        return obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, SYSTEM_TENANT_ID);
+    }
+
     private String userByTenantUrl(Integer tenantId, Integer idUser) {
-        return ACCOUNT_URL + "/tenant/" + tenantId + "/userId/" + idUser;
+        return TENANT_URL + tenantId + "/userId/" + idUser;
+    }
+
+    private String userUrl(Integer tenantId, Integer idUser) {
+        return TENANT_URL + tenantId + "/user/" + idUser;
+    }
+
+    private String passwordUrl(Integer tenantId, Integer idUser) {
+        return TENANT_URL + tenantId + "/user/password/" + idUser;
+    }
+
+    private String roleUrl(Integer tenantId, Integer idUser, String role) {
+        return userUrl(tenantId, idUser) + ROLE_URL + role;
+    }
+
+    private String usersUrl(Integer tenantId) {
+        return TENANT_URL + tenantId + "/users";
     }
 
     @Test

@@ -14,7 +14,7 @@ public class EditUserService extends AccountServiceBase<UserEditDto> {
 
     @Override
     protected void fetch(AccountContext<UserEditDto> context) {
-        context.getUsers().add(findUserOrThrow(context.getIdUser()));
+        context.getUsers().add(findUserOrThrow(context));
     }
 
     @Override
