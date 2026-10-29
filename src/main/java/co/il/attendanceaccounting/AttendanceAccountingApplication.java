@@ -9,14 +9,16 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 
-import java.util.Arrays;
-import java.util.stream.Collectors;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
 
 import co.il.attendanceaccounting.dao.UserRepository;
 import co.il.attendanceaccounting.model.User;
-import co.il.attendanceaccounting.security.SecurityConstants;
 import lombok.extern.slf4j.Slf4j;
 
+import static co.il.attendanceaccounting.security.SecurityConstants.SYSTEM_TENANT_ID;
+import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.PLATFORM_ADMIN;
 import static org.apache.commons.lang3.BooleanUtils.isFalse;
 
 @Slf4j
@@ -49,17 +51,29 @@ public class AttendanceAccountingApplication implements CommandLineRunner{
 							+ "at least 12 characters).");
 		}
 
-		if (isFalse(accountRepository.existsById(bootstrapAdminId))) {
+		Optional<User> existing = accountRepository.findById(bootstrapAdminId);
+		if (existing.isEmpty()) {
 			String hashPassword = passwordEncoder.encode(bootstrapAdminPassword);
-			User admin = User.builder().idUser(bootstrapAdminId).password(hashPassword).firstName("Super")
+			User admin = User.builder().idUser(bootstrapAdminId).password(hashPassword).firstName("Platform")
 					.lastName("Admin")
-					.tenantId(SecurityConstants.SYSTEM_TENANT_ID)
-					.roles(Arrays.stream(SecurityConstants.SecurityRoles.values()).map(Enum::name)
-							.collect(Collectors.toSet())).build();
+					.tenantId(SYSTEM_TENANT_ID)
+					.roles(platformRoles()).build();
 			accountRepository.save(admin);
-			log.info("Created super-admin {} in tenant {}.", bootstrapAdminId,
-					SecurityConstants.SYSTEM_TENANT_ID);
+			log.info("Created platform admin {} in tenant {}.", bootstrapAdminId, SYSTEM_TENANT_ID);
+			return;
 		}
+		User admin = existing.get();
+		if (isFalse(platformRoles().equals(admin.getRoles())) || isFalse(SYSTEM_TENANT_ID.equals(admin.getTenantId()))) {
+			admin.setRoles(platformRoles());
+			admin.setTenantId(SYSTEM_TENANT_ID);
+			accountRepository.save(admin);
+			log.info("Reset platform admin {} to roles {} in tenant {}.", bootstrapAdminId, admin.getRoles(),
+					SYSTEM_TENANT_ID);
+		}
+	}
+
+	private static Set<String> platformRoles() {
+		return new HashSet<>(Set.of(PLATFORM_ADMIN.name()));
 	}
 
 }

@@ -11,8 +11,8 @@ public class SecurityConstants {
 
     public enum SecurityRoles {
         USER,
-        MODERATOR,
-        ADMINISTRATOR
+        ADMINISTRATOR,
+        PLATFORM_ADMIN
     }
 
 

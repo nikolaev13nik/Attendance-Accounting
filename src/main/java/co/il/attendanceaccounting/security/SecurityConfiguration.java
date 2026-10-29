@@ -7,6 +7,8 @@ import org.springframework.boot.security.autoconfigure.web.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -34,6 +36,9 @@ import javax.crypto.spec.SecretKeySpec;
 import jakarta.servlet.DispatcherType;
 
 import static co.il.attendanceaccounting.security.SecurityConstants.AUTHORITIES;
+import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
+import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.PLATFORM_ADMIN;
+import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.USER;
 
 @Configuration
 @EnableWebSecurity
@@ -49,6 +54,14 @@ public class SecurityConfiguration {
 
 		}
 		return new SecretKeySpec(keyBytes, "HmacSHA256");
+	}
+
+	@Bean
+	static RoleHierarchy roleHierarchy() {
+		return RoleHierarchyImpl.withDefaultRolePrefix()
+				.role(PLATFORM_ADMIN.name()).implies(ADMINISTRATOR.name())
+				.role(ADMINISTRATOR.name()).implies(USER.name())
+				.build();
 	}
 
 	@Bean

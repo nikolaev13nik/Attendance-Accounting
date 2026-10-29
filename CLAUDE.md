@@ -111,19 +111,22 @@ Errors are `@ResponseStatus` exceptions in `co.il.attendanceaccounting.exception
    It puts `{token, tokenType: "Bearer", expiresIn}` on the context; `LoginService.mapResult` adds `profile`.
 
 **Role-string casing is load-bearing.** Roles are stored as free-form strings (`register` assigns
-`"User"`; the seed/bootstrap use `"Administrator"`). `UserDetailsServiceImpl` uppercases them into
+`"User"`; the test seed uses `"Administrator"`, the bootstrap `"PLATFORM_ADMIN"`). `UserDetailsServiceImpl` uppercases them into
 authorities, so the JWT carries `["USER"]` / `["ADMINISTRATOR"]`, and every service (here and downstream)
 adds the `ROLE_` prefix in its `JwtAuthenticationConverter` before `hasRole(...)` checks. Don't "fix" the
 casing on one side only.
 
-`AttendanceAccountingApplication` is a `CommandLineRunner` that bootstraps a super-admin
-(`idUser 123456789`, password `admin`, all roles, `tenantId = SecurityConstants.SYSTEM_TENANT_ID` = 0) if
-it doesn't already exist — convenient locally, but it is a hardcoded default credential; don't propagate
-it into anything production-facing.
+`AttendanceAccountingApplication` is a `CommandLineRunner` that bootstraps the platform admin
+(`idUser 123456789`, password from `ATTENDANCE_ACCOUNTING_BOOTSTRAP_ADMIN_PASSWORD`, role `PLATFORM_ADMIN`
+only, `tenantId = SecurityConstants.SYSTEM_TENANT_ID` = 0). If the row already exists, every startup resets
+its roles and tenant to exactly those values.
 
 ### Authorization
 
-Rules are `@PreAuthorize` annotations on the controller methods, as in TimeTracking:
+Roles are `USER`, `ADMINISTRATOR` (admin of one tenant) and `PLATFORM_ADMIN` (the bootstrap account). A
+`RoleHierarchy` bean in `SecurityConfiguration` makes `PLATFORM_ADMIN > ADMINISTRATOR > USER`, so
+`hasRole('ADMINISTRATOR')` also admits the platform admin. Rules are `@PreAuthorize` annotations on the
+controller methods, as in TimeTracking:
 
 - `removeUser`, `addRole`, `removeRole` — `ROLE_ADMINISTRATOR`.
 - `editUser` (`PUT /account/user/password/{idUser}`) — an administrator or the user themselves

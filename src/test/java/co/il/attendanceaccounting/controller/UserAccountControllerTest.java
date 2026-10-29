@@ -3,6 +3,7 @@ package co.il.attendanceaccounting.controller;
 import org.flywaydb.test.annotation.FlywayTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,10 +11,13 @@ import org.springframework.http.ResponseEntity;
 import java.util.List;
 import java.util.Set;
 
+import co.il.attendanceaccounting.AttendanceAccountingApplication;
 import co.il.attendanceaccounting.dto.TenantMappingDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.dto.LoginResponseDto;
+import co.il.attendanceaccounting.model.User;
 
+import static co.il.attendanceaccounting.security.SecurityConstants.SYSTEM_TENANT_ID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -33,7 +37,12 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     private static final String PROTECTED_MESSAGE = "user is protected and cannot be deleted";
     private static final String USER_ROLE = "USER";
     private static final String ADMINISTRATOR_ROLE = "ADMINISTRATOR";
+    private static final String PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
     private static final String NEW_USER_PWD = "pw";
+    private static final String BOOTSTRAP_PWD = "test-bootstrap-password";
+
+    @Autowired
+    private AttendanceAccountingApplication application;
 
     @Test
     @FlywayTest
@@ -95,11 +104,11 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals(HttpStatus.CREATED, member.getStatusCode());
 
         String token = obtainToken(91, NEW_USER_PWD, NEW_TENANT_ID);
-        ResponseEntity<String> response = sendWithToken(HttpMethod.POST, USER_URL + "/" + 90 + ROLE_URL + "Moderator",
+        ResponseEntity<String> response = sendWithToken(HttpMethod.POST, USER_URL + "/" + 90 + ROLE_URL + "Administrator",
                 null, token);
         assertEquals(HttpStatus.OK, response.getStatusCode(),
                 "Reason: the auto-granted role must survive login into the JWT authorities claim and satisfy hasRole('ADMINISTRATOR')");
-        assertTrue(userRepository.findById(90).orElseThrow().getRoles().contains("Moderator"));
+        assertTrue(userRepository.findById(90).orElseThrow().getRoles().contains("Administrator"));
     }
 
     @Test
@@ -421,22 +430,22 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("POST /account/user/{id}/role/{role} as admin adds the role")
     void addRoleAsAdminTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL + "/" + USER_ID + ROLE_URL + "Moderator", null, ADMIN_ID, ADMIN_PWD);
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL + "/" + USER_ID + ROLE_URL + "Administrator", null, ADMIN_ID, ADMIN_PWD);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
-        assertTrue(body.getRoles().contains("Moderator"));
+        assertTrue(body.getRoles().contains("Administrator"));
         assertTrue(body.getRoles().contains("User"));
-        assertTrue(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("Moderator"));
+        assertTrue(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("Administrator"));
     }
 
     @Test
     @FlywayTest
     @DisplayName("POST /account/user/{id}/role/{role} as non-admin returns 403")
     void addRoleForbiddenTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL + "/" + USER_ID + ROLE_URL + "Moderator", null, USER_ID, USER_PWD);
+        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL + "/" + USER_ID + ROLE_URL + "Administrator", null, USER_ID, USER_PWD);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
-        assertFalse(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("Moderator"));
+        assertFalse(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("Administrator"));
     }
 
     @Test
@@ -458,6 +467,40 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
         assertTrue(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("User"));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("Bootstrap creates the platform admin in tenant 0, and its token passes administrator-only endpoints")
+    void bootstrapPlatformAdminPassesAdministratorEndpointTest() throws Exception {
+        application.run();
+        User platformAdmin = userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow();
+        assertEquals(Set.of(PLATFORM_ADMIN_ROLE), platformAdmin.getRoles(),
+                "Reason: the platform admin holds only PLATFORM_ADMIN, the hierarchy implies the rest");
+        assertEquals(SYSTEM_TENANT_ID, platformAdmin.getTenantId());
+
+        String token = obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, SYSTEM_TENANT_ID);
+        ResponseEntity<String> response = sendWithToken(HttpMethod.POST,
+                USER_URL + "/" + USER_ID + ROLE_URL + "Administrator", null, token);
+        assertEquals(HttpStatus.OK, response.getStatusCode(),
+                "Reason: PLATFORM_ADMIN must imply ADMINISTRATOR through the role hierarchy");
+        assertTrue(userRepository.findById(USER_ID).orElseThrow().getRoles().contains("Administrator"));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("Bootstrap resets an existing platform admin row to PLATFORM_ADMIN only in tenant 0")
+    void bootstrapResetsPlatformAdminRolesAndTenantTest() throws Exception {
+        userRepository.save(User.builder().idUser(PROTECTED_ADMIN_ID).password("irrelevant").tenantId(USER_TENANT_ID)
+                .role("User").role("Administrator").build());
+
+        application.run();
+
+        User platformAdmin = userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow();
+        assertEquals(Set.of(PLATFORM_ADMIN_ROLE), platformAdmin.getRoles(),
+                "Reason: startup must restore the platform admin's role set, whatever was stored before");
+        assertEquals(SYSTEM_TENANT_ID, platformAdmin.getTenantId(),
+                "Reason: the platform admin always lives in the system tenant");
     }
 
     @Test
