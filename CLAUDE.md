@@ -165,14 +165,24 @@ Sessions are stateless, CSRF and CORS are disabled, and the H2 console is exclud
 
 ### Persistence
 
-- Local/dev runs on a file-based H2 database (`spring.jpa.hibernate.ddl-auto=update`); tests run on
-  in-memory H2 with `ddl-auto=none` and schema/seed applied by Flyway migrations in
-  `src/test/resources/db.migration` (`V1__schema.sql` creates `users` + `user_roles`,
-  `V2__users_setup.sql` seeds three users across tenants 100 and 200 with BCrypt passwords).
-- The `postgresql` dependency is present for production use but no active Postgres datasource is
-  configured in this repo. Migrations exist **only under test resources** — there is no production
-  migration set, so a schema change means updating the test migrations and relying on `ddl-auto=update`
-  elsewhere.
+- **Flyway owns the schema everywhere.** `src/main/resources/db/migration` holds the versioned scripts
+  (`V1__schema.sql`: tables, keys and indexes), applied at startup on the local H2 file database, Compose
+  and Kubernetes alike, and recorded in `flyway_schema_history`. Hibernate runs with `ddl-auto=validate`: it
+  never changes the schema, and the service refuses to start when an entity and its table disagree. **Every
+  entity change ships with a new `V<n>__<what>.sql` in the same commit**; never edit a script that has
+  already been applied, add a new one instead. The scripts must run on Postgres; tests run them on H2 in
+  `MODE=PostgreSQL`, which catches most but not all differences.
+- Tests load `classpath:db/migration,classpath:db/testdata`: the real production schema first, then the
+  test-only seed rows in `src/test/resources/db/testdata`, one `V1xx__<table>_setup.sql` per table. They are
+  numbered from 100 so they run after every production script and never collide with a future one, in
+  foreign-key order. `@FlywayTest` cleans and re-migrates before a test.
+- An existing database that Flyway did not create (any database from before 1e) has tables but no
+  `flyway_schema_history`, so startup fails with "non-empty schema without schema history table". Drop the
+  service's tables once (or delete the local `./data` H2 files) and let Flyway rebuild them.
+- Local/dev runs on a file-based H2 database (`./data/attendance-accounting`); Compose and Kubernetes
+  override the datasource to Postgres schema `accounting`. The test seed
+  (`V101__att_ac_tenant_mapping_setup.sql`, `V102__users_setup.sql`, `V103__user_roles_setup.sql`) holds
+  tenants 100/200/300 and users 1–3 with BCrypt passwords.
 
 ### Known gaps (don't assume these exist)
 
@@ -192,7 +202,7 @@ helper **logs in for real** to obtain a JWT (`POST /account/login` with the seed
 resolved by `tenantIdFor`) and sends it as a bearer token, so authorization is exercised end to end — pass
 `null` for the user/password to send an anonymous request. Reuse the seeded constants (`ADMIN_ID`,
 `USER_ID`, `OTHER_USER_ID` and their passwords/tenants) and the `createUserRegisterDto` /
-`createUserEditDto` builders rather than re-deriving fixtures; the seed comes from `V2__users_setup.sql`,
+`createUserEditDto` builders rather than re-deriving fixtures; the seed comes from `db/testdata/V1xx__<table>_setup.sql`,
 and every test that mutates data is annotated `@FlywayTest` to reset it.
 
 Each test carries a `@DisplayName` naming the HTTP contract it pins (`"DELETE /account/user/{id} as
