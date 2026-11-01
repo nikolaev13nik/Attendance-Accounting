@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Optional;
 
 import co.il.attendanceaccounting.dao.TenantMappingRepository;
+import co.il.attendanceaccounting.AttendanceAccountingApplication;
 import co.il.attendanceaccounting.dao.UserRepository;
 import co.il.attendanceaccounting.dto.SignUpRequestDto;
 import co.il.attendanceaccounting.dto.UserEditDto;
@@ -27,6 +28,8 @@ import co.il.attendanceaccounting.dto.LoginRequestDto;
 import co.il.attendanceaccounting.model.User;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+
+import static co.il.attendance.security.SecurityConstants.PLATFORM_TENANT_ID;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestExecutionListeners(
@@ -46,6 +49,9 @@ public abstract class BaseApiControllerTest {
 
     @Autowired
     protected ObjectMapper objectMapper;
+
+    @Autowired
+    protected AttendanceAccountingApplication application;
 
     protected static final Integer ADMIN_ID = 1;
     protected static final String ADMIN_PWD = "admin123";
@@ -69,6 +75,8 @@ public abstract class BaseApiControllerTest {
     protected static final String TENANT_100_CONTACT = "Wile E Coyote";
     protected static final String TENANT_100_PHONE = "+1-555-0100";
     protected static final Integer UNKNOWN_TENANT_ID = 999;
+    protected static final Integer PROTECTED_ADMIN_ID = 123456789;
+    protected static final String BOOTSTRAP_PWD = "test-bootstrap-password";
 
     private final RestTemplate rest = createRestTemplate();
 
@@ -131,6 +139,15 @@ public abstract class BaseApiControllerTest {
         String payload = objectMapper.writeValueAsString(createLoginRequestDto(secureUser, securePass, tenantId, null));
         ResponseEntity<String>response = rest.exchange(url("/account/login"),HttpMethod.POST,new HttpEntity<>(payload,headers),String.class);
         return json(response).path("token").asString();
+    }
+
+    protected String platformAdminToken() {
+        try {
+            application.run();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        return obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, PLATFORM_TENANT_ID);
     }
 
     /** Resolves the tenant id for the well-known seeded users used across tests */

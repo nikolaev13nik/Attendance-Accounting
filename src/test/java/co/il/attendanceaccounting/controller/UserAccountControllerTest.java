@@ -12,7 +12,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.List;
 import java.util.Set;
 
-import co.il.attendanceaccounting.AttendanceAccountingApplication;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.dto.LoginResponseDto;
 import co.il.attendanceaccounting.model.User;
@@ -31,17 +30,12 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     private static final String TENANT_URL = ACCOUNT_URL + "/tenant/";
     private static final String ROLE_URL = "/role/";
     private static final Integer NEW_TENANT_ID = 300;
-    private static final Integer PROTECTED_ADMIN_ID = 123456789;
     private static final String PROTECTED_MESSAGE = "user is protected and cannot be modified";
     private static final String LAST_ADMIN_MESSAGE = "tenant must keep at least one administrator";
     private static final String USER_ROLE = "USER";
     private static final String ADMINISTRATOR_ROLE = "ADMINISTRATOR";
     private static final String PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
     private static final String NEW_USER_PWD = "pw";
-    private static final String BOOTSTRAP_PWD = "test-bootstrap-password";
-
-    @Autowired
-    private AttendanceAccountingApplication application;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -962,15 +956,6 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode(),
                 "Reason: an empty tenant is claimable only by the platform admin; new organizations use /account/signup");
         assertFalse(existsUser(82));
-    }
-
-    private String platformAdminToken() {
-        try {
-            application.run();
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
-        return obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, PLATFORM_TENANT_ID);
     }
 
     private ResponseEntity<String> registerAsPlatformAdmin(Integer tenantId, Object body) {

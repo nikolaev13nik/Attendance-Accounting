@@ -1,10 +1,13 @@
 package co.il.attendanceaccounting.context;
 
+import org.springframework.data.domain.Page;
+
 import java.util.ArrayList;
 import java.util.List;
 
 import co.il.attendanceaccounting.dto.LoginResponseDto;
 import co.il.attendanceaccounting.dto.TenantMappingDto;
+import co.il.attendanceaccounting.dto.TenantPageDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.model.TenantMapping;
 import co.il.attendanceaccounting.model.User;
@@ -32,12 +35,16 @@ public class AccountContext<T> implements BusinessStrategyContext {
     private List<TenantMapping> tenantMappings = new ArrayList<>();
     private boolean tenantHasUsers;
     private String companyName;
+    private Integer page;
+    private Integer pageSize;
+    private Page<TenantMapping> tenantPage;
 
     @Builder.Default
     private List<UserProfileDto> responseUserProfileDto = new ArrayList<>();
     @Builder.Default
     private List<TenantMappingDto> responseTenantMappingDto = new ArrayList<>();
     private LoginResponseDto loginResponseDto;
+    private TenantPageDto responseTenantPageDto;
 
     public User getSingleUser() {
         return this.users.get(0);

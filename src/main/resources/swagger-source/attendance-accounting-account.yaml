@@ -284,6 +284,46 @@ paths:
         '500':
           $ref: '#/responses/500-InternalServerError'
 
+  /account/tenants:
+    get:
+      summary: Lists every organization
+      description: |
+        Only for the platform admin (role PLATFORM_ADMIN with JWT tenant 0); anyone else gets 403.
+      operationId: getAllTenants
+      tags:
+        - Account
+      parameters:
+        - name: page
+          in: query
+          description: |
+            Zero-based page number, 0 or more; anything else is 400
+          required: false
+          type: integer
+          format: int32
+          default: 0
+        - name: size
+          in: query
+          description: |
+            Number of organizations per page, 1 to 100; anything else is 400
+          required: false
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        '200':
+          description: |
+            One page of organizations, ordered by tenant identifier
+          schema:
+            $ref: '#/definitions/TenantPageDto'
+        '400':
+          $ref: '#/responses/400-BadRequest'
+        '401':
+          $ref: '#/responses/401-Unauthorized'
+        '403':
+          $ref: '#/responses/403-Forbidden'
+        '500':
+          $ref: '#/responses/500-InternalServerError'
+
   /account/tenant/{tenantId}/users:
     get:
       summary: Lists the users of one tenant
@@ -525,6 +565,38 @@ definitions:
           Contact email address of the organization
         type: string
         format: email
+
+  TenantPageDto:
+    type: object
+    description: |
+      One page of organizations
+    properties:
+      items:
+        description: |
+          Organizations on this page
+        type: array
+        items:
+          $ref: '#/definitions/TenantMappingDto'
+      page:
+        description: |
+          Zero-based number of this page
+        type: integer
+        format: int32
+      size:
+        description: |
+          Requested page size
+        type: integer
+        format: int32
+      totalElements:
+        description: |
+          Number of organizations across all pages
+        type: integer
+        format: int64
+      totalPages:
+        description: |
+          Number of pages at this page size
+        type: integer
+        format: int32
 
   UserEditDto:
     type: object

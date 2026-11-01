@@ -16,11 +16,13 @@ import co.il.attendanceaccounting.dto.LoginResponseDto;
 import co.il.attendanceaccounting.dto.SignUpRequestDto;
 import co.il.attendanceaccounting.dto.SignUpResponseDto;
 import co.il.attendanceaccounting.dto.UserEditDto;
+import co.il.attendanceaccounting.dto.TenantPageDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
 import co.il.attendanceaccounting.model.UserBasicKey;
 import co.il.attendanceaccounting.service.strategy.AddRoleService;
 import co.il.attendanceaccounting.service.strategy.EditUserService;
+import co.il.attendanceaccounting.service.strategy.GetAllTenantsService;
 import co.il.attendanceaccounting.service.strategy.GetAllUsersService;
 import co.il.attendanceaccounting.service.strategy.GetUserService;
 import co.il.attendanceaccounting.service.strategy.LoginService;
@@ -40,6 +42,7 @@ public class UserAccountController implements AccountApi {
     private final EditUserService editUserService;
     private final AddRoleService addRoleService;
     private final RemoveRoleService removeRoleService;
+    private final GetAllTenantsService getAllTenantsService;
     private final GetAllUsersService getAllUsersService;
     private final GetUserService getUserService;
     private final LoginService loginService;
@@ -100,6 +103,14 @@ public class UserAccountController implements AccountApi {
                 .build();
         removeRoleService.execute(context);
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
+    }
+
+    @PreAuthorize("T(co.il.attendance.security.JwtClaimsResolver).isPlatformAdmin(authentication)")
+    @Override
+    public ResponseEntity<TenantPageDto> getAllTenants(Integer page, Integer size) {
+        AccountContext<Void> context = AccountContext.<Void>builder().page(page).pageSize(size).build();
+        getAllTenantsService.execute(context);
+        return ResponseEntity.ok(context.getResponseTenantPageDto());
     }
 
     @Override

@@ -3,15 +3,31 @@ package co.il.attendanceaccounting.mapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
+import org.springframework.data.domain.Page;
+
+import java.util.List;
 
 import co.il.attendanceaccounting.dto.SignUpRequestDto;
 import co.il.attendanceaccounting.dto.TenantMappingDto;
+import co.il.attendanceaccounting.dto.TenantPageDto;
 import co.il.attendanceaccounting.model.TenantMapping;
 
 @Mapper(componentModel = "spring")
 public interface TenantMappingMapper {
 
     TenantMappingDto toDto(TenantMapping tenantMapping);
+
+    List<TenantMappingDto> toDtoList(List<TenantMapping> tenantMappings);
+
+    default TenantPageDto toPageDto(Page<TenantMapping> tenantPage) {
+        return TenantPageDto.builder()
+                .items(toDtoList(tenantPage.getContent()))
+                .page(tenantPage.getNumber())
+                .size(tenantPage.getSize())
+                .totalElements(tenantPage.getTotalElements())
+                .totalPages(tenantPage.getTotalPages())
+                .build();
+    }
 
     @Mapping(target = "tenantId", ignore = true)
     @Mapping(target = "status", ignore = true)

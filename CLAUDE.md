@@ -81,7 +81,7 @@ pipeline.**
   `context.users` to `responseUserProfileDto`. Services override only the steps they need.
 - One strategy per API in `service.strategy`: `RegisterUserService`, `SignUpService`,
   `RemoveUserService`, `EditUserService`, `AddRoleService`, `RemoveRoleService`, `GetAllUsersService`,
-  `GetUserService`, `LoginService`.
+  `GetUserService`, `LoginService`, `GetAllTenantsService`.
 - Entity ↔ DTO conversion goes through MapStruct (`mapper.UserMapper`, `mapper.TenantMappingMapper`).
   `UserProfileDto` has no password field, so no response can leak it. Keep new responses going through
   the mappers.
@@ -98,7 +98,7 @@ pipeline.**
 
 Errors are `@ResponseStatus` exceptions in `co.il.attendanceaccounting.exceptions`, with message strings in
 `ErrorConstants` — `UserExistsException` (409), `UserAuthenticationException` (401), `ProtectedUserException`
-(403), `UserNotFoundException` (404). There is no `@ControllerAdvice`; add a new `@ResponseStatus`
+(403), `UserNotFoundException` (404), `InvalidPageException` (400). There is no `@ControllerAdvice`; add a new `@ResponseStatus`
 exception instead of a handler class.
 
 ### Authentication & JWT minting
@@ -163,6 +163,15 @@ and may name any tenant, including 0 for its own account. The services then look
 `findByIdUserAndTenantId(idUser, pathTenant)` (`AccountServiceBase.findTenantUser*`), so a user of another
 tenant answers exactly like a missing one: 404. New secured endpoints must take `{tenantId}` in the path
 and go through those helpers, never `findById`.
+
+**Listing organizations.** `GET /account/tenants?page=0&size=20` (`GetAllTenantsService`) returns one
+`TenantPageDto` (`items`, `page`, `size`, `totalElements`, `totalPages`), ordered by tenant id, to the platform
+admin only. `page` must be 0 or more and `size` 1 to 100; the limits are checked in `validate`
+(400 `InvalidPageException`), not in the spec, because a spec `minimum`/`maximum` fails through the generated
+`@Validated` interface as an unmapped `ConstraintViolationException`, which is a 500. `fetch` skips the query
+for out-of-range values, since `PageRequest` would throw first. Only the platform admin may call it
+(`@PreAuthorize` on `JwtClaimsResolver.isPlatformAdmin`; anyone else gets 403). It is the one secured endpoint
+outside `/account/tenant/**`, because it spans all tenants, so the tenant interceptor does not apply to it.
 
 **Creating organizations and users.** A new organization is created only by `POST /account/signup`
 (public, `SignUpService`), which saves the tenant and its first administrator in one transaction; the

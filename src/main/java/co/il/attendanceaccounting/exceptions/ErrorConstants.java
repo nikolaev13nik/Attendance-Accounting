@@ -7,5 +7,6 @@ public class ErrorConstants {
     public static final String ROLE_NOT_ALLOWED_MSG = "Role %s is not allowed";
     public static final String MISSING_CREDENTIALS_MSG = "Missing credentials";
     public static final String INVALID_CREDENTIALS_MSG = "Invalid credentials";
+    public static final String INVALID_PAGE_MSG = "Page %s of size %s is not allowed: page must be 0 or more, size 1 to 100";
 
 }
