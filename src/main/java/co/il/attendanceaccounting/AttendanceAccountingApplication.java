@@ -15,6 +15,7 @@ import java.util.Set;
 import co.il.attendanceaccounting.configuration.AccountConfiguration;
 import co.il.attendanceaccounting.dao.UserRepository;
 import co.il.attendanceaccounting.model.User;
+import co.il.attendanceaccounting.model.UserBasicKey;
 import lombok.extern.slf4j.Slf4j;
 
 import static co.il.attendanceaccounting.security.SecurityConstants.PLATFORM_TENANT_ID;
@@ -52,21 +53,20 @@ public class AttendanceAccountingApplication implements CommandLineRunner{
 							+ "at least 12 characters).");
 		}
 
-		Optional<User> existing = accountRepository.findById(bootstrapAdminId);
+		Optional<User> existing = accountRepository.findById(new UserBasicKey(PLATFORM_TENANT_ID, bootstrapAdminId));
 		if (existing.isEmpty()) {
 			String hashPassword = passwordEncoder.encode(bootstrapAdminPassword);
-			User admin = User.builder().idUser(bootstrapAdminId).password(hashPassword).firstName("Platform")
+			User admin = User.builder().userBasicKey(new UserBasicKey(PLATFORM_TENANT_ID, bootstrapAdminId))
+					.password(hashPassword).firstName("Platform")
 					.lastName("Admin")
-					.tenantId(PLATFORM_TENANT_ID)
 					.roles(platformRoles()).build();
 			accountRepository.save(admin);
 			log.info("Created platform admin {} in tenant {}.", bootstrapAdminId, PLATFORM_TENANT_ID);
 			return;
 		}
 		User admin = existing.get();
-		if (isFalse(platformRoles().equals(admin.getRoles())) || isFalse(PLATFORM_TENANT_ID.equals(admin.getTenantId()))) {
+		if (isFalse(platformRoles().equals(admin.getRoles()))) {
 			admin.setRoles(platformRoles());
-			admin.setTenantId(PLATFORM_TENANT_ID);
 			accountRepository.save(admin);
 			log.info("Reset platform admin {} to roles {} in tenant {}.", bootstrapAdminId, admin.getRoles(),
 					PLATFORM_TENANT_ID);

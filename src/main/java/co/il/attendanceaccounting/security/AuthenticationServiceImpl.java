@@ -14,6 +14,7 @@ import co.il.attendanceaccounting.dto.LoginResponseDto;
 import co.il.attendanceaccounting.exceptions.UserAuthenticationException;
 import co.il.attendanceaccounting.model.TenantMapping;
 import co.il.attendanceaccounting.model.User;
+import co.il.attendanceaccounting.model.UserBasicKey;
 import lombok.RequiredArgsConstructor;
 
 import static co.il.attendanceaccounting.exceptions.ErrorConstants.INVALID_CREDENTIALS_MSG;
@@ -54,17 +55,14 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         Integer requestedTenantId = resolveRequestedTenantId(request);
         Authentication authentication;
         try {
-            authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(String.valueOf(request.getIdUser()),
-                            request.getPassword()));
+            authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
+                    UserDetailsServiceImpl.principalOf(requestedTenantId, request.getIdUser()), request.getPassword()));
         } catch (AuthenticationException ex) {
             throw new UserAuthenticationException(INVALID_CREDENTIALS_MSG, ex);
         }
-        User user = userRepository.findById(request.getIdUser())
+        User user = userRepository.findById(new UserBasicKey(requestedTenantId, request.getIdUser()))
                 .orElseThrow(() -> new UserAuthenticationException(INVALID_CREDENTIALS_MSG));
-        if (!user.getTenantId().equals(requestedTenantId)) {
-            throw new UserAuthenticationException(INVALID_CREDENTIALS_MSG);
-        }
+        context.getUsers().add(user);
         JwtService.MintedToken minted = jwtService.mint(authentication, user.getTenantId());
         context.setLoginResponseDto(LoginResponseDto.builder()
                 .token(minted.token())

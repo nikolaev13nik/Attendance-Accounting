@@ -18,6 +18,7 @@ import co.il.attendanceaccounting.dto.SignUpResponseDto;
 import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
+import co.il.attendanceaccounting.model.UserBasicKey;
 import co.il.attendanceaccounting.service.strategy.AddRoleService;
 import co.il.attendanceaccounting.service.strategy.EditUserService;
 import co.il.attendanceaccounting.service.strategy.GetAllUsersService;
@@ -66,7 +67,7 @@ public class UserAccountController implements AccountApi {
     @PreAuthorize("hasRole(T(co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
     @Override
     public ResponseEntity<UserProfileDto> removeUser(@PathVariable Integer tenantId, @PathVariable Integer idUser) {
-        AccountContext<Void> context = AccountContext.<Void>builder().tenantId(tenantId).idUser(idUser).build();
+        AccountContext<Void> context = AccountContext.<Void>builder().userBasicKey(new UserBasicKey(tenantId, idUser)).build();
         removeUserService.execute(context);
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
@@ -76,7 +77,7 @@ public class UserAccountController implements AccountApi {
     public ResponseEntity<UserProfileDto> editUser(@PathVariable Integer tenantId, @PathVariable Integer idUser,
                                                    @RequestBody UserEditDto userEditDto) {
         AccountContext<UserEditDto> context = AccountContext.<UserEditDto>builder()
-                .tenantId(tenantId).idUser(idUser).task(userEditDto).build();
+                .userBasicKey(new UserBasicKey(tenantId, idUser)).task(userEditDto).build();
         editUserService.execute(context);
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
@@ -85,7 +86,7 @@ public class UserAccountController implements AccountApi {
     @Override
     public ResponseEntity<UserProfileDto> addRole(@PathVariable Integer tenantId, @PathVariable Integer idUser,
                                                   @PathVariable String role) {
-        AccountContext<Void> context = AccountContext.<Void>builder().tenantId(tenantId).idUser(idUser).role(role)
+        AccountContext<Void> context = AccountContext.<Void>builder().userBasicKey(new UserBasicKey(tenantId, idUser)).role(role)
                 .build();
         addRoleService.execute(context);
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
@@ -95,7 +96,7 @@ public class UserAccountController implements AccountApi {
     @Override
     public ResponseEntity<UserProfileDto> removeRole(@PathVariable Integer tenantId, @PathVariable Integer idUser,
                                                   @PathVariable String role) {
-        AccountContext<Void> context = AccountContext.<Void>builder().tenantId(tenantId).idUser(idUser).role(role)
+        AccountContext<Void> context = AccountContext.<Void>builder().userBasicKey(new UserBasicKey(tenantId, idUser)).role(role)
                 .build();
         removeRoleService.execute(context);
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
@@ -110,7 +111,7 @@ public class UserAccountController implements AccountApi {
 
     @Override
     public ResponseEntity<UserProfileDto> getUser(@PathVariable Integer tenantId, @PathVariable Integer idUser) {
-        AccountContext<Void> context = AccountContext.<Void>builder().tenantId(tenantId).idUser(idUser).build();
+        AccountContext<Void> context = AccountContext.<Void>builder().userBasicKey(new UserBasicKey(tenantId, idUser)).build();
         getUserService.execute(context);
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }

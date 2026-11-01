@@ -24,13 +24,13 @@ public interface UserMapper {
     @Mapping(target = "password", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "role", ignore = true)
-    @Mapping(target = "tenantId", ignore = true)
+    @Mapping(target = "userBasicKey", ignore = true)
     User toEntity(UserRegisterDto userRegisterDto);
 
     @Mapping(target = "password", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "role", ignore = true)
-    @Mapping(target = "tenantId", ignore = true)
+    @Mapping(target = "userBasicKey", ignore = true)
     User toEntity(SignUpRequestDto signUpRequestDto);
 
 }

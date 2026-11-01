@@ -27,7 +27,7 @@ public abstract class RoleServiceBase extends AccountServiceBase<Void> {
             throw new RoleNotAllowedException(context.getRole());
         }
         context.setRole(role);
-        if (isProtectedUser(context.getIdUser())) {
+        if (isProtectedUser(context)) {
             throw new ProtectedUserException();
         }
     }

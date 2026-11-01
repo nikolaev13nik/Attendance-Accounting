@@ -16,24 +16,15 @@ public class LoginService extends AccountServiceBase<LoginRequestDto> {
     private AuthenticationService authenticationService;
 
     @Override
-    protected void fetch(AccountContext<LoginRequestDto> context) {
-        LoginRequestDto request = context.getTask();
-        if (request == null || request.getIdUser() == null) {
-            return;
-        }
-        userRepository.findById(request.getIdUser()).ifPresent(user -> {
-            context.getUsers().add(user);
-            if (user.getTenantId() != null) {
-                context.setCompanyName(tenantMappingRepository.findById(user.getTenantId())
-                        .map(TenantMapping::getCompanyName)
-                        .orElse(null));
-            }
-        });
+    protected void validate(AccountContext<LoginRequestDto> context) {
+        authenticationService.authenticate(context);
     }
 
     @Override
-    protected void validate(AccountContext<LoginRequestDto> context) {
-        authenticationService.authenticate(context);
+    protected void executeBusiness(AccountContext<LoginRequestDto> context) {
+        context.setCompanyName(tenantMappingRepository.findById(context.getSingleUser().getTenantId())
+                .map(TenantMapping::getCompanyName)
+                .orElse(null));
     }
 
     @Override

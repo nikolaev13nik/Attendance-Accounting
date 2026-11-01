@@ -13,8 +13,10 @@ import co.il.attendanceaccounting.exceptions.LastAdministratorException;
 import co.il.attendanceaccounting.exceptions.UserNotFoundException;
 import co.il.attendanceaccounting.mapper.UserMapper;
 import co.il.attendanceaccounting.model.User;
+import co.il.attendanceaccounting.model.UserBasicKey;
 import jakarta.transaction.Transactional;
 
+import static co.il.attendanceaccounting.security.SecurityConstants.PLATFORM_TENANT_ID;
 import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
 
 public abstract class AccountServiceBase<R> implements BaseService<R> {
@@ -64,15 +66,17 @@ public abstract class AccountServiceBase<R> implements BaseService<R> {
     }
 
     protected Optional<User> findTenantUser(AccountContext<R> context) {
-        return userRepository.findByIdUserAndTenantId(context.getIdUser(), context.getTenantId());
+        return userRepository.findById(context.getUserBasicKey());
     }
 
     protected User findUserOrThrow(AccountContext<R> context) {
-        return findTenantUser(context).orElseThrow(() -> userNotFound(context.getIdUser()));
+        return findTenantUser(context).orElseThrow(() -> userNotFound(context.getUserBasicKey().getIdUser()));
     }
 
-    protected boolean isProtectedUser(Integer idUser) {
-        return idUser == accountConfiguration.getBootstrapAdminId();
+    protected boolean isProtectedUser(AccountContext<R> context) {
+        UserBasicKey key = context.getUserBasicKey();
+        return key.getIdUser() == accountConfiguration.getBootstrapAdminId()
+                && PLATFORM_TENANT_ID.equals(key.getTenantId());
     }
 
     protected void ensureNotLastAdministrator(User user) {

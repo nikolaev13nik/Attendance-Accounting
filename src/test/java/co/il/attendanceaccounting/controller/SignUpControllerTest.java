@@ -15,6 +15,7 @@ import co.il.attendanceaccounting.dto.TenantMappingDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.model.TenantMapping;
 import co.il.attendanceaccounting.model.User;
+import co.il.attendanceaccounting.model.UserBasicKey;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -70,7 +71,7 @@ class SignUpControllerTest extends BaseApiControllerTest {
 
         TenantMapping storedTenant = tenantMappingRepository.findById(tenant.getTenantId()).orElseThrow();
         assertEquals(NEW_COMPANY_NAME, storedTenant.getCompanyName());
-        User storedAdmin = userRepository.findById(NEW_ADMIN_ID).orElseThrow();
+        User storedAdmin = findUser(NEW_ADMIN_ID).orElseThrow();
         assertEquals(tenant.getTenantId(), storedAdmin.getTenantId());
         assertEquals(Set.of("USER", "ADMINISTRATOR"), storedAdmin.getRoles());
         assertNotEquals(NEW_ADMIN_PWD, storedAdmin.getPassword(), "Reason: the password must be stored hashed");
@@ -108,23 +109,22 @@ class SignUpControllerTest extends BaseApiControllerTest {
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         assertEquals("tenant exists", errorMessage(response));
         assertNothingCreated(tenantsBefore, usersBefore);
-        assertFalse(userRepository.existsById(NEW_ADMIN_ID));
+        assertFalse(existsUser(NEW_ADMIN_ID));
     }
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/signup with a taken user id returns 409 and leaves no organization behind")
-    void signUpTakenUserIdTest() {
-        long tenantsBefore = tenantMappingRepository.count();
-        long usersBefore = userRepository.count();
+    @DisplayName("POST /account/signup with an id already used in another organization succeeds and reveals nothing")
+    void signUpWithIdUsedElsewhereTest() {
         ResponseEntity<String> response = send(HttpMethod.POST, SIGN_UP_URL,
                 createSignUpRequestDto(NEW_COMPANY_NAME, NEW_PHONE, USER_ID, NEW_ADMIN_PWD, NEW_FIRST_NAME,
                         NEW_LAST_NAME, NEW_EMAIL), null, null);
-        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertEquals("user exists", errorMessage(response));
-        assertNothingCreated(tenantsBefore, usersBefore);
-        assertFalse(tenantMappingRepository.existsByCompanyNameIgnoreCase(NEW_COMPANY_NAME),
-                "Reason: an organization without its administrator is exactly the claimable state signup prevents");
+        assertEquals(HttpStatus.CREATED, response.getStatusCode(),
+                "Reason: ids are unique per organization, so signup no longer tells strangers which ids exist elsewhere");
+        Integer newTenantId = readObject(response, SignUpResponseDto.class).getTenant().getTenantId();
+        assertTrue(userRepository.existsById(new UserBasicKey(newTenantId, USER_ID)));
+        assertEquals("John", userRepository.findById(new UserBasicKey(USER_TENANT_ID, USER_ID)).orElseThrow().getFirstName(),
+                "Reason: the user with the same id in the other organization is untouched");
     }
 
     @Test

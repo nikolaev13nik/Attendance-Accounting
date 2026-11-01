@@ -8,16 +8,16 @@ import java.util.List;
 import java.util.Optional;
 
 import co.il.attendanceaccounting.model.User;
+import co.il.attendanceaccounting.model.UserBasicKey;
 
-public interface UserRepository extends JpaRepository<User, Integer>{
+public interface UserRepository extends JpaRepository<User, UserBasicKey>{
 
-	List<User> findByTenantId(Integer tenantId);
+	List<User> findByUserBasicKeyTenantId(Integer tenantId);
 
-	boolean existsByTenantId(Integer tenantId);
+	boolean existsByUserBasicKeyTenantId(Integer tenantId);
 
-	Optional<User> findByIdUserAndTenantId(Integer idUser, Integer tenantId);
 
-	@Query("select count(distinct u) from User u join u.roles r where u.tenantId = :tenantId and upper(r) = :role")
+	@Query("select count(distinct u) from User u join u.roles r where u.userBasicKey.tenantId = :tenantId and upper(r) = :role")
 	long countByTenantIdAndRole(@Param("tenantId") Integer tenantId, @Param("role") String role);
 
 }

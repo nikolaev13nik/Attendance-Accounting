@@ -87,8 +87,13 @@ pipeline.**
 - `UserRepository`, `TenantMappingRepository` — Spring Data repositories, used only from the services and
   the security layer.
 - `User` (`co.il.attendanceaccounting.model`) → table `users`, with roles as an eager
-  `@ElementCollection Set<String>` → table `user_roles`. The id is the caller-supplied `idUser` (a
-  national-ID-like number), **not** generated.
+  `@ElementCollection Set<String>` → table `user_roles (tenant_id, user_id, roles)`. The primary key is
+  `(tenant_id, id_user)`, held as `@EmbeddedId UserBasicKey userBasicKey` (the same style as TimeTracking's
+  `MonthStatistic`); `User.getIdUser()` / `getTenantId()` are convenience getters over that key, and
+  writes go through `setUserBasicKey(new UserBasicKey(tenantId, idUser))`. `idUser` is a caller-supplied
+  national-ID-like number, **not** generated, and unique **per tenant only**, so the same person can
+  belong to several tenants. Always look a user up by the full key (`findById(new UserBasicKey(...))`);
+  there is no lookup by id alone.
 
 Errors are `@ResponseStatus` exceptions in `co.il.attendanceaccounting.exceptions`, with message strings in
 `ErrorConstants` — `UserExistsException` (409), `UserAuthenticationException` (401), `ProtectedUserException`
@@ -100,10 +105,13 @@ exception instead of a handler class.
 `POST /account/login` takes `{idUser, password, tenantId | companyName}` (`LoginRequestDto`) and runs
 `LoginService`, whose `validate` step calls `AuthenticationService.authenticate(context)`:
 
-1. `AuthenticationServiceImpl` authenticates id+password through the `AuthenticationManager`
-   (`DaoAuthenticationProvider` + `UserDetailsServiceImpl` + BCrypt).
-2. It then checks the requested `tenantId` matches the stored one — a mismatch is reported as
-   `Invalid credentials` (401), same as a wrong password, so login can't be used to probe tenants.
+1. `AuthenticationServiceImpl` resolves the tenant from `tenantId` or `companyName` first.
+2. It authenticates through the `AuthenticationManager` (`DaoAuthenticationProvider` +
+   `UserDetailsServiceImpl` + BCrypt) with the principal `"<tenantId>:<idUser>"`
+   (`UserDetailsServiceImpl.principalOf`), so the user is loaded by its full key. An unknown company, an
+   id not in that company and a wrong password are all the same `Invalid credentials` (401), so login
+   can't be used to probe tenants. The loaded `UserDetails` carries the plain id as its username, which
+   becomes the JWT `sub`.
 3. `JwtService.mint` builds the token: `sub` = user id, `authorities` claim = the user's roles,
    `tenantId` claim, HS256, TTL from `attendance-accounting.security.jwt.ttl-seconds` (default 3600).
    It puts `{token, tokenType: "Bearer", expiresIn}` on the context; `LoginService.mapResult` adds `profile`.
@@ -121,8 +129,9 @@ A tenant always keeps one administrator: removing `ADMINISTRATOR` from, or delet
 
 `AttendanceAccountingApplication` is a `CommandLineRunner` that bootstraps the platform admin
 (`idUser 123456789`, password from `ATTENDANCE_ACCOUNTING_BOOTSTRAP_ADMIN_PASSWORD`, role `PLATFORM_ADMIN`
-only, `tenantId = SecurityConstants.PLATFORM_TENANT_ID` = 0). If the row already exists, every startup resets
-its roles and tenant to exactly those values.
+only, `tenantId = SecurityConstants.PLATFORM_TENANT_ID` = 0). If `(0, 123456789)` already exists, every
+startup resets its roles to exactly that. Protection (403 on delete or role change) applies to that
+key only; a user with the same id in another tenant is an ordinary user.
 
 ### Authorization
 

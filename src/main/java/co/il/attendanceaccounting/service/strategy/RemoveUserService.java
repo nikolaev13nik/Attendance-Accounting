@@ -16,11 +16,11 @@ public class RemoveUserService extends AccountServiceBase<Void> {
 
     @Override
     protected void validate(AccountContext<Void> context) {
-        if (isProtectedUser(context.getIdUser())) {
+        if (isProtectedUser(context)) {
             throw new ProtectedUserException();
         }
         if (context.getUsers().isEmpty()) {
-            throw userNotFound(context.getIdUser());
+            throw userNotFound(context.getUserBasicKey().getIdUser());
         }
         ensureNotLastAdministrator(context.getSingleUser());
     }

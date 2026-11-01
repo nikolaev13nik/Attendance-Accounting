@@ -8,6 +8,7 @@ import co.il.attendanceaccounting.dto.TenantMappingDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.model.TenantMapping;
 import co.il.attendanceaccounting.model.User;
+import co.il.attendanceaccounting.model.UserBasicKey;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -22,7 +23,7 @@ import lombok.Setter;
 public class AccountContext<T> implements BusinessStrategyContext {
 
     private T task;
-    private Integer idUser;
+    private UserBasicKey userBasicKey;
     private Integer tenantId;
     private String role;
     @Builder.Default

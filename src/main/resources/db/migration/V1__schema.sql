@@ -5,16 +5,16 @@ CREATE TABLE users (
     password   VARCHAR(255),
     email      VARCHAR(255),
     tenant_id  INTEGER      NOT NULL,
-    CONSTRAINT pk_users PRIMARY KEY (id_user)
+    CONSTRAINT pk_users PRIMARY KEY (tenant_id, id_user)
 );
 
-CREATE INDEX ix_users_tenant_id ON users (tenant_id);
-
 CREATE TABLE user_roles (
-    user_id INTEGER      NOT NULL,
-    roles   VARCHAR(255),
-    CONSTRAINT uq_user_roles UNIQUE (user_id, roles),
-    CONSTRAINT fk_user_roles_user FOREIGN KEY (user_id) REFERENCES users (id_user) ON DELETE CASCADE
+    tenant_id INTEGER      NOT NULL,
+    user_id   INTEGER      NOT NULL,
+    roles     VARCHAR(255),
+    CONSTRAINT uq_user_roles UNIQUE (tenant_id, user_id, roles),
+    CONSTRAINT fk_user_roles_user FOREIGN KEY (tenant_id, user_id) REFERENCES users (tenant_id, id_user)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE att_ac_tenant_mapping (

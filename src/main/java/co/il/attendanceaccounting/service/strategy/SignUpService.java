@@ -9,10 +9,10 @@ import java.util.List;
 import co.il.attendanceaccounting.context.AccountContext;
 import co.il.attendanceaccounting.dto.SignUpRequestDto;
 import co.il.attendanceaccounting.exceptions.TenantExistsException;
-import co.il.attendanceaccounting.exceptions.UserExistsException;
 import co.il.attendanceaccounting.mapper.TenantMappingMapper;
 import co.il.attendanceaccounting.model.TenantMapping;
 import co.il.attendanceaccounting.model.User;
+import co.il.attendanceaccounting.model.UserBasicKey;
 import co.il.attendanceaccounting.service.base.AccountServiceBase;
 
 import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
@@ -30,9 +30,6 @@ public class SignUpService extends AccountServiceBase<SignUpRequestDto> {
         if (tenantMappingRepository.existsByCompanyNameIgnoreCase(request.getCompanyName().trim())) {
             throw new TenantExistsException();
         }
-        if (userRepository.existsById(request.getIdUser())) {
-            throw new UserExistsException();
-        }
     }
 
     @Override
@@ -49,7 +46,7 @@ public class SignUpService extends AccountServiceBase<SignUpRequestDto> {
     protected void persist(AccountContext<SignUpRequestDto> context) {
         TenantMapping tenant = context.getTenantMappings().get(0);
         tenantMappingRepository.save(tenant);
-        context.getSingleUser().setTenantId(tenant.getTenantId());
+        context.getSingleUser().setUserBasicKey(new UserBasicKey(tenant.getTenantId(), context.getTask().getIdUser()));
         userRepository.saveAll(context.getUsers());
     }
 

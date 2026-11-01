@@ -13,6 +13,7 @@ import co.il.attendanceaccounting.dto.UserRegisterDto;
 import co.il.attendanceaccounting.exceptions.TenantNotFoundException;
 import co.il.attendanceaccounting.exceptions.UserExistsException;
 import co.il.attendanceaccounting.model.User;
+import co.il.attendanceaccounting.model.UserBasicKey;
 import co.il.attendanceaccounting.security.JwtClaimsResolver;
 import co.il.attendanceaccounting.service.base.AccountServiceBase;
 
@@ -27,7 +28,7 @@ public class RegisterUserService extends AccountServiceBase<UserRegisterDto> {
 
     @Override
     protected void fetch(AccountContext<UserRegisterDto> context) {
-        context.setTenantHasUsers(userRepository.existsByTenantId(context.getTenantId()));
+        context.setTenantHasUsers(userRepository.existsByUserBasicKeyTenantId(context.getTenantId()));
     }
 
     @Override
@@ -37,7 +38,7 @@ public class RegisterUserService extends AccountServiceBase<UserRegisterDto> {
         if (isFalse(tenantMappingRepository.existsById(tenantId))) {
             throw new TenantNotFoundException(String.valueOf(tenantId));
         }
-        if (userRepository.existsById(context.getTask().getIdUser())) {
+        if (userRepository.existsById(new UserBasicKey(tenantId, context.getTask().getIdUser()))) {
             throw new UserExistsException();
         }
     }
@@ -52,7 +53,7 @@ public class RegisterUserService extends AccountServiceBase<UserRegisterDto> {
     @Override
     protected void executeBusiness(AccountContext<UserRegisterDto> context) {
         User user = userMapper.toEntity(context.getTask());
-        user.setTenantId(context.getTenantId());
+        user.setUserBasicKey(new UserBasicKey(context.getTenantId(), context.getTask().getIdUser()));
         encodePassword(user, context.getTask().getPassword());
         user.setRoles(rolesForNewUser(context));
         context.getUsers().add(user);

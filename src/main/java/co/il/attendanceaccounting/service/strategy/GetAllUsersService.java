@@ -10,6 +10,6 @@ public class GetAllUsersService extends AccountServiceBase<Void> {
 
     @Override
     protected void fetch(AccountContext<Void> context) {
-        context.setUsers(userRepository.findByTenantId(context.getTenantId()));
+        context.setUsers(userRepository.findByUserBasicKeyTenantId(context.getTenantId()));
     }
 }

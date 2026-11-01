@@ -16,6 +16,7 @@ import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.Optional;
 
 import co.il.attendanceaccounting.dao.TenantMappingRepository;
 import co.il.attendanceaccounting.dao.UserRepository;
@@ -23,6 +24,7 @@ import co.il.attendanceaccounting.dto.SignUpRequestDto;
 import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
 import co.il.attendanceaccounting.dto.LoginRequestDto;
+import co.il.attendanceaccounting.model.User;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -106,6 +108,14 @@ public abstract class BaseApiControllerTest {
         }
         Object payload = (body == null || body instanceof  String) ? body: objectMapper.writeValueAsString(body);
         return rest.exchange(url(path), method, new HttpEntity<>(payload,headers), String.class);
+    }
+
+    protected Optional<User> findUser(Integer idUser) {
+        return userRepository.findAll().stream().filter(user -> user.getIdUser().equals(idUser)).findFirst();
+    }
+
+    protected boolean existsUser(Integer idUser) {
+        return findUser(idUser).isPresent();
     }
 
     protected String url(String path){
