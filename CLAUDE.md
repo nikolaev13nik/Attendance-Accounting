@@ -55,10 +55,9 @@ validation annotations on the DTOs come from the spec (`performBeanValidation`),
 "email must be a valid email" are declared there, not in Java. The login body is `required: false` with no
 required fields on purpose: an empty or partial body must reach authentication and get 401, not 400.
 
-**Spec consumers exist outside this repo.** `Attendance-TimeTracking` keeps a manually synced copy of this
-yaml to generate its outbound client, and that copy is already stale (it still has a placeholder
-`GET /account/user/{idUser}`, while this repo has since published
-`GET /account/tenant/{tenantId}/userId/{idUser}`). When changing this spec, update that copy too.
+**Spec consumers exist outside this repo.** `Attendance-TimeTracking` keeps a verbatim copy of this yaml
+(`src/main/resources/swagger-source/attendance-accounting-account.yaml`) to generate its outbound client,
+which calls `getUser` and `getAllUsers`. When changing this spec, copy it over there in the same change.
 
 ### Layering: strategy services over a shared context (same pattern as TimeTracking)
 
@@ -122,7 +121,7 @@ A tenant always keeps one administrator: removing `ADMINISTRATOR` from, or delet
 
 `AttendanceAccountingApplication` is a `CommandLineRunner` that bootstraps the platform admin
 (`idUser 123456789`, password from `ATTENDANCE_ACCOUNTING_BOOTSTRAP_ADMIN_PASSWORD`, role `PLATFORM_ADMIN`
-only, `tenantId = SecurityConstants.SYSTEM_TENANT_ID` = 0). If the row already exists, every startup resets
+only, `tenantId = SecurityConstants.PLATFORM_TENANT_ID` = 0). If the row already exists, every startup resets
 its roles and tenant to exactly those values.
 
 ### Authorization
@@ -137,9 +136,11 @@ controller methods, as in TimeTracking:
   (`#idUser.toString() == authentication.name`).
 
 **Tenant isolation.** Every secured endpoint lives under `/account/tenant/{tenantId}/...`.
-`security.TenantInterceptor` (registered in `security.WebConfig`, mirroring TimeTracking) compares that path
-tenant with the JWT `tenantId` claim and throws `AccessDeniedException` (403 `"Forbidden"`) on a mismatch.
-The one exception is the platform admin: `ROLE_PLATFORM_ADMIN` **and** JWT tenant 0 skips the comparison
+`security.TenantInterceptor` (registered in `security.WebConfig` for `/account/tenant/**` except
+`/account/tenant/add`, mirroring TimeTracking) compares that path tenant with the JWT `tenantId` claim and
+throws `AccessDeniedException` (403 `"Forbidden"`) on a mismatch, or when a matched endpoint has no
+`{tenantId}` in its path (fail closed). The one exception is the platform admin: `ROLE_PLATFORM_ADMIN`
+**and** JWT tenant `PLATFORM_TENANT_ID` (0) skips the comparison
 and may name any tenant, including 0 for its own account. The services then look users up with
 `findByIdUserAndTenantId(idUser, pathTenant)` (`AccountServiceBase.findTenantUser*`), so a user of another
 tenant answers exactly like a missing one: 404. New secured endpoints must take `{tenantId}` in the path

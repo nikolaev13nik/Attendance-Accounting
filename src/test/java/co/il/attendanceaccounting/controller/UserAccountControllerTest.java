@@ -18,7 +18,7 @@ import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.dto.LoginResponseDto;
 import co.il.attendanceaccounting.model.User;
 
-import static co.il.attendanceaccounting.security.SecurityConstants.SYSTEM_TENANT_ID;
+import static co.il.attendanceaccounting.security.SecurityConstants.PLATFORM_TENANT_ID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -481,9 +481,9 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         User platformAdmin = userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow();
         assertEquals(Set.of(PLATFORM_ADMIN_ROLE), platformAdmin.getRoles(),
                 "Reason: the platform admin holds only PLATFORM_ADMIN, the hierarchy implies the rest");
-        assertEquals(SYSTEM_TENANT_ID, platformAdmin.getTenantId());
+        assertEquals(PLATFORM_TENANT_ID, platformAdmin.getTenantId());
 
-        String token = obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, SYSTEM_TENANT_ID);
+        String token = obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, PLATFORM_TENANT_ID);
         ResponseEntity<String> response = sendWithToken(HttpMethod.POST,
                 roleUrl(USER_TENANT_ID, USER_ID, "Administrator"), null, token);
         assertEquals(HttpStatus.OK, response.getStatusCode(),
@@ -503,7 +503,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         User platformAdmin = userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow();
         assertEquals(Set.of(PLATFORM_ADMIN_ROLE), platformAdmin.getRoles(),
                 "Reason: startup must restore the platform admin's role set, whatever was stored before");
-        assertEquals(SYSTEM_TENANT_ID, platformAdmin.getTenantId(),
+        assertEquals(PLATFORM_TENANT_ID, platformAdmin.getTenantId(),
                 "Reason: the platform admin always lives in the system tenant");
     }
 
@@ -697,7 +697,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @DisplayName("PUT /account/tenant/0/user/password/{id} lets the platform admin edit its own profile")
     void editSelfAsPlatformAdminTest() throws Exception {
         ResponseEntity<String> response = sendWithToken(HttpMethod.PUT,
-                passwordUrl(SYSTEM_TENANT_ID, PROTECTED_ADMIN_ID),
+                passwordUrl(PLATFORM_TENANT_ID, PROTECTED_ADMIN_ID),
                 createUserEditDto("Support", null, null, null), platformAdminToken());
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("Support", userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow().getFirstName());
@@ -731,12 +731,12 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @DisplayName("PUT /account/tenant/0/user/password/{platformAdmin} by a tenant admin returns 403 and keeps the platform admin")
     void editPlatformAdminAsTenantAdminTest() throws Exception {
         application.run();
-        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(SYSTEM_TENANT_ID, PROTECTED_ADMIN_ID),
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(PLATFORM_TENANT_ID, PROTECTED_ADMIN_ID),
                 createUserEditDto("Owned", null, "attacker-password", null), ADMIN_ID, ADMIN_PWD);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode(),
                 "Reason: tenant 0 is the system tenant, only the platform admin's own JWT carries it");
         assertEquals("Platform", userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow().getFirstName());
-        assertFalse(obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, SYSTEM_TENANT_ID).isBlank(),
+        assertFalse(obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, PLATFORM_TENANT_ID).isBlank(),
                 "Reason: the platform admin's password must be unchanged");
     }
 
@@ -780,7 +780,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @DisplayName("DELETE /account/tenant/0/user/{platformAdmin}/role/PLATFORM_ADMIN returns 400 and keeps the role")
     void removePlatformAdminRoleTest() throws Exception {
         ResponseEntity<String> response = sendWithToken(HttpMethod.DELETE,
-                roleUrl(SYSTEM_TENANT_ID, PROTECTED_ADMIN_ID, PLATFORM_ADMIN_ROLE), null, platformAdminToken());
+                roleUrl(PLATFORM_TENANT_ID, PROTECTED_ADMIN_ID, PLATFORM_ADMIN_ROLE), null, platformAdminToken());
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(Set.of(PLATFORM_ADMIN_ROLE), userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow().getRoles());
     }
@@ -790,7 +790,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @DisplayName("POST /account/tenant/0/user/{platformAdmin}/role/{role} returns 403 because the account is protected")
     void changeRolesOfProtectedAccountTest() throws Exception {
         ResponseEntity<String> response = sendWithToken(HttpMethod.POST,
-                roleUrl(SYSTEM_TENANT_ID, PROTECTED_ADMIN_ID, ADMINISTRATOR_ROLE), null, platformAdminToken());
+                roleUrl(PLATFORM_TENANT_ID, PROTECTED_ADMIN_ID, ADMINISTRATOR_ROLE), null, platformAdminToken());
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(PROTECTED_MESSAGE, errorMessage(response));
         assertEquals(Set.of(PLATFORM_ADMIN_ROLE), userRepository.findById(PROTECTED_ADMIN_ID).orElseThrow().getRoles());
@@ -856,7 +856,7 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     private String platformAdminToken() throws Exception {
         application.run();
-        return obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, SYSTEM_TENANT_ID);
+        return obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, PLATFORM_TENANT_ID);
     }
 
     private String userByTenantUrl(Integer tenantId, Integer idUser) {

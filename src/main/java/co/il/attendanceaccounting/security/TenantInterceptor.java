@@ -6,6 +6,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
 
@@ -16,7 +17,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 
-import static co.il.attendanceaccounting.security.SecurityConstants.SYSTEM_TENANT_ID;
+import static co.il.attendanceaccounting.security.SecurityConstants.PLATFORM_TENANT_ID;
 import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.PLATFORM_ADMIN;
 import static co.il.attendanceaccounting.security.SecurityConstants.TENANT_ID;
 
@@ -29,9 +30,13 @@ public class TenantInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        if (!(handler instanceof HandlerMethod)) {
+            return true;
+        }
         String pathTenantId = pathTenantId(request);
         if (pathTenantId == null) {
-            return true;
+            log.warn("Request rejected: no tenant in path {}", request.getRequestURI());
+            throw new AccessDeniedException(FORBIDDEN);
         }
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String jwtTenantId = jwtTenantId(auth);
@@ -64,7 +69,7 @@ public class TenantInterceptor implements HandlerInterceptor {
     }
 
     private static boolean isPlatformAdmin(Authentication auth, String jwtTenantId) {
-        return SYSTEM_TENANT_ID.toString().equals(jwtTenantId) && auth.getAuthorities().stream()
+        return PLATFORM_TENANT_ID.toString().equals(jwtTenantId) && auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .filter(Objects::nonNull)
                 .anyMatch(PLATFORM_ADMIN_AUTHORITY::equals);

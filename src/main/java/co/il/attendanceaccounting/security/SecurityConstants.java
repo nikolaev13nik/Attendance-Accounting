@@ -7,7 +7,7 @@ public class SecurityConstants {
 
     public static final String TENANT_ID = "tenantId";
 
-    public static final Integer SYSTEM_TENANT_ID = 0;
+    public static final Integer PLATFORM_TENANT_ID = 0;
 
     public enum SecurityRoles {
         USER,
