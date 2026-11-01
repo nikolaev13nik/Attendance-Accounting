@@ -5,6 +5,7 @@ import org.mapstruct.Mapping;
 
 import java.util.List;
 
+import co.il.attendanceaccounting.dto.SignUpRequestDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
 import co.il.attendanceaccounting.model.User;
@@ -25,5 +26,11 @@ public interface UserMapper {
     @Mapping(target = "role", ignore = true)
     @Mapping(target = "tenantId", ignore = true)
     User toEntity(UserRegisterDto userRegisterDto);
+
+    @Mapping(target = "password", ignore = true)
+    @Mapping(target = "roles", ignore = true)
+    @Mapping(target = "role", ignore = true)
+    @Mapping(target = "tenantId", ignore = true)
+    User toEntity(SignUpRequestDto signUpRequestDto);
 
 }

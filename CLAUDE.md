@@ -67,7 +67,7 @@ pipeline.**
 - `UserAccountController` implements the generated `AccountApi`. Each method builds an `AccountContext<T>`
   (`co.il.attendanceaccounting.context`) with its Lombok builder, calls one strategy service's
   `execute(context)`, and returns the result read back off the context (`201 CREATED` for register and
-  addTenant, `200` otherwise).
+  signUp, `200` otherwise).
 - Every service is `void`: `BaseService<T>` (`service.base`) declares only `execute` and
   `executeWithoutTransactional`. `AccountServiceBase<R>` fixes the template-method pipeline:
 
@@ -78,7 +78,7 @@ pipeline.**
 
   Default `persist` saves `context.users` and `context.tenantMappings`; default `mapResult` maps
   `context.users` to `responseUserProfileDto`. Services override only the steps they need.
-- One strategy per API in `service.strategy`: `RegisterUserService`, `AddTenantService`,
+- One strategy per API in `service.strategy`: `RegisterUserService`, `SignUpService`,
   `RemoveUserService`, `EditUserService`, `AddRoleService`, `RemoveRoleService`, `GetAllUsersService`,
   `GetUserService`, `LoginService`.
 - Entity ↔ DTO conversion goes through MapStruct (`mapper.UserMapper`, `mapper.TenantMappingMapper`).
@@ -136,8 +136,8 @@ controller methods, as in TimeTracking:
   (`#idUser.toString() == authentication.name`).
 
 **Tenant isolation.** Every secured endpoint lives under `/account/tenant/{tenantId}/...`.
-`security.TenantInterceptor` (registered in `security.WebConfig` for `/account/tenant/**` except
-`/account/tenant/add` and the register path `/account/tenant/*/user`, mirroring TimeTracking) compares that path tenant with the JWT `tenantId` claim and
+`security.TenantInterceptor` (registered in `security.WebConfig` for all of `/account/tenant/**`, with no
+exclusions, mirroring TimeTracking) compares that path tenant with the JWT `tenantId` claim and
 throws `AccessDeniedException` (403 `"Forbidden"`) on a mismatch, or when a matched endpoint has no
 `{tenantId}` in its path (fail closed). The one exception is the platform admin: `ROLE_PLATFORM_ADMIN`
 **and** JWT tenant `PLATFORM_TENANT_ID` (0) skips the comparison
@@ -146,17 +146,17 @@ and may name any tenant, including 0 for its own account. The services then look
 tenant answers exactly like a missing one: 404. New secured endpoints must take `{tenantId}` in the path
 and go through those helpers, never `findById`.
 
-**Registration** (`POST /account/tenant/{tenantId}/user`) is the one tenant path the interceptor skips,
-because its first caller has no token. `RegisterUserService.validate` applies the whole rule instead, in
-this order: unknown tenant 400; then the caller check (via `security.JwtClaimsResolver`): with a token,
-only that tenant's ADMINISTRATOR or the platform admin (403 otherwise); anonymous, only into a tenant with
-no users (`AccessDeniedException`, which Spring turns into 401 for an anonymous caller); and only then a
-taken id 409, so strangers cannot probe which ids exist. The first user of an empty tenant still becomes
-its ADMINISTRATOR, whoever registers it.
+**Creating organizations and users.** A new organization is created only by `POST /account/signup`
+(public, `SignUpService`), which saves the tenant and its first administrator in one transaction; the
+administrator's name and email double as the tenant's contact name and email. There is deliberately no
+way to create a tenant without an administrator, because such a tenant could be claimed by whoever
+registers into it first. `POST /account/tenant/{tenantId}/user` (`RegisterUserService`) requires a token:
+the caller must be that tenant's ADMINISTRATOR or the platform admin (`security.JwtClaimsResolver`), checked
+before the unknown-tenant 400 and the taken-id 409. The first user of a tenant with no users becomes its
+ADMINISTRATOR, which only the platform admin can now trigger.
 
 `SecurityConfiguration.filterChain` keeps only the URL-level rules: `POST /account/login`,
-`POST /account/tenant/*/user` (register, checked in the service as above), `POST /account/tenant/add`,
-actuator health and the ERROR dispatch are public;
+`POST /account/signup`, actuator health and the ERROR dispatch are public;
 everything else must be authenticated. `AccessDeniedHandlerImpl` is kept on purpose, so a 403 body carries
 message `"Forbidden"` (tests assert it). Method security runs after request binding and validation, so a
 malformed request from an unauthorized caller gets 400 rather than 403.
@@ -176,9 +176,8 @@ Sessions are stateless, CSRF and CORS are disabled, and the H2 console is exclud
 
 ### Known gaps (don't assume these exist)
 
-- A brand-new tenant can be claimed by whoever registers into it first: tenant ids are sequential, so
-  between `POST /account/tenant/add` and its owner's registration a stranger who guesses the id becomes its
-  administrator. An atomic "create tenant + first admin" endpoint is planned to close this.
+- `POST /account/signup` is public and unthrottled, so anyone can create organizations in bulk; rate limiting
+  is not in place yet.
 - No Kafka/Spring Cloud Stream, no outbound clients to other services, no scheduled jobs here.
 
 ## Testing conventions

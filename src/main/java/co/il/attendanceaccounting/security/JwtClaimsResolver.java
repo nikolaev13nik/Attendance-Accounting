@@ -18,10 +18,6 @@ public final class JwtClaimsResolver {
     private JwtClaimsResolver() {
     }
 
-    public static boolean isJwtAuthenticated(Authentication auth) {
-        return auth != null && auth.getPrincipal() instanceof Jwt;
-    }
-
     public static String currentTenantId(Authentication auth) {
         if (auth != null && auth.getPrincipal() instanceof Jwt jwt) {
             return jwt.getClaimAsString(TENANT_ID);
@@ -40,7 +36,7 @@ public final class JwtClaimsResolver {
 
     private static boolean hasAuthority(Authentication auth, SecurityConstants.SecurityRoles role) {
         String authority = ROLE_PREFIX + role.name();
-        return auth.getAuthorities().stream()
+        return auth != null && auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .filter(Objects::nonNull)
                 .anyMatch(authority::equals);

@@ -19,7 +19,7 @@ import java.util.List;
 
 import co.il.attendanceaccounting.dao.TenantMappingRepository;
 import co.il.attendanceaccounting.dao.UserRepository;
-import co.il.attendanceaccounting.dto.TenantAddDto;
+import co.il.attendanceaccounting.dto.SignUpRequestDto;
 import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
 import co.il.attendanceaccounting.dto.LoginRequestDto;
@@ -191,11 +191,15 @@ public abstract class BaseApiControllerTest {
                 .build();
     }
 
-    protected TenantAddDto createTenantAddDto(String companyName, String contactName, String phone, String email) {
-        return TenantAddDto.builder()
+    protected SignUpRequestDto createSignUpRequestDto(String companyName, String phone, Integer idUser, String password,
+                                                      String firstName, String lastName, String email) {
+        return SignUpRequestDto.builder()
                 .companyName(companyName)
-                .contactName(contactName)
                 .phone(phone)
+                .idUser(idUser)
+                .password(password)
+                .firstName(firstName)
+                .lastName(lastName)
                 .email(email)
                 .build();
     }

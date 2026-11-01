@@ -13,13 +13,12 @@ import co.il.attendanceaccounting.api.AccountApi;
 import co.il.attendanceaccounting.context.AccountContext;
 import co.il.attendanceaccounting.dto.LoginRequestDto;
 import co.il.attendanceaccounting.dto.LoginResponseDto;
-import co.il.attendanceaccounting.dto.TenantAddDto;
-import co.il.attendanceaccounting.dto.TenantMappingDto;
+import co.il.attendanceaccounting.dto.SignUpRequestDto;
+import co.il.attendanceaccounting.dto.SignUpResponseDto;
 import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.dto.UserRegisterDto;
 import co.il.attendanceaccounting.service.strategy.AddRoleService;
-import co.il.attendanceaccounting.service.strategy.AddTenantService;
 import co.il.attendanceaccounting.service.strategy.EditUserService;
 import co.il.attendanceaccounting.service.strategy.GetAllUsersService;
 import co.il.attendanceaccounting.service.strategy.GetUserService;
@@ -27,6 +26,7 @@ import co.il.attendanceaccounting.service.strategy.LoginService;
 import co.il.attendanceaccounting.service.strategy.RegisterUserService;
 import co.il.attendanceaccounting.service.strategy.RemoveRoleService;
 import co.il.attendanceaccounting.service.strategy.RemoveUserService;
+import co.il.attendanceaccounting.service.strategy.SignUpService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -34,7 +34,7 @@ import lombok.RequiredArgsConstructor;
 public class UserAccountController implements AccountApi {
 
     private final RegisterUserService registerUserService;
-    private final AddTenantService addTenantService;
+    private final SignUpService signUpService;
     private final RemoveUserService removeUserService;
     private final EditUserService editUserService;
     private final AddRoleService addRoleService;
@@ -53,11 +53,14 @@ public class UserAccountController implements AccountApi {
     }
 
     @Override
-    public ResponseEntity<TenantMappingDto> addTenant(@RequestBody TenantAddDto tenantAddDto) {
-        AccountContext<TenantAddDto> context = AccountContext.<TenantAddDto>builder()
-                .task(tenantAddDto).build();
-        addTenantService.execute(context);
-        return ResponseEntity.status(HttpStatus.CREATED).body(context.getSingleResponseTenantMappingDto());
+    public ResponseEntity<SignUpResponseDto> signUp(@RequestBody SignUpRequestDto signUpRequestDto) {
+        AccountContext<SignUpRequestDto> context = AccountContext.<SignUpRequestDto>builder()
+                .task(signUpRequestDto).build();
+        signUpService.execute(context);
+        return ResponseEntity.status(HttpStatus.CREATED).body(SignUpResponseDto.builder()
+                .tenant(context.getSingleResponseTenantMappingDto())
+                .admin(context.getSingleResponseUserProfileDto())
+                .build());
     }
 
     @PreAuthorize("hasRole(T(co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")

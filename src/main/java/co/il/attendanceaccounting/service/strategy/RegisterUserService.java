@@ -33,22 +33,18 @@ public class RegisterUserService extends AccountServiceBase<UserRegisterDto> {
     @Override
     protected void validate(AccountContext<UserRegisterDto> context) {
         Integer tenantId = context.getTenantId();
+        ensureCallerMayRegisterInto(tenantId);
         if (isFalse(tenantMappingRepository.existsById(tenantId))) {
             throw new TenantNotFoundException(String.valueOf(tenantId));
         }
-        ensureCallerMayRegisterInto(tenantId, context.isTenantHasUsers());
         if (userRepository.existsById(context.getTask().getIdUser())) {
             throw new UserExistsException();
         }
     }
 
-    private void ensureCallerMayRegisterInto(Integer tenantId, boolean tenantHasUsers) {
+    private void ensureCallerMayRegisterInto(Integer tenantId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (JwtClaimsResolver.isJwtAuthenticated(auth)) {
-            if (!JwtClaimsResolver.isPlatformAdmin(auth) && !JwtClaimsResolver.isAdministratorOf(auth, tenantId)) {
-                throw new AccessDeniedException(FORBIDDEN);
-            }
-        } else if (tenantHasUsers) {
+        if (isFalse(JwtClaimsResolver.isPlatformAdmin(auth)) && isFalse(JwtClaimsResolver.isAdministratorOf(auth, tenantId))) {
             throw new AccessDeniedException(FORBIDDEN);
         }
     }

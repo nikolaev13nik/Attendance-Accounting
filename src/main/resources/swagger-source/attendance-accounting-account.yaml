@@ -66,18 +66,46 @@ paths:
         '500':
           $ref: '#/responses/500-InternalServerError'
 
+  /account/signup:
+    post:
+      summary: Signs up a new organization together with its first administrator
+      description: |
+        Creates the tenant and its administrator in one transaction: either both exist afterwards or neither.
+        The administrator's name and email also become the organization's contact name and email.
+      operationId: signUp
+      tags:
+        - Account
+      security: []
+      parameters:
+        - name: SignUpRequestDto
+          in: body
+          description: |
+            Organization and first administrator details
+          required: true
+          schema:
+            $ref: '#/definitions/SignUpRequestDto'
+      responses:
+        '201':
+          description: |
+            Created organization and its administrator
+          schema:
+            $ref: '#/definitions/SignUpResponseDto'
+        '400':
+          $ref: '#/responses/400-BadRequest'
+        '409':
+          $ref: '#/responses/409-Conflict'
+        '500':
+          $ref: '#/responses/500-InternalServerError'
+
   /account/tenant/{tenantId}/user:
     post:
       summary: Registers a new user in a tenant
       description: |
-        Anonymous callers may register only into a tenant that has no users yet; that first user becomes its
-        administrator. Otherwise the caller must be an administrator of the tenant or the platform admin.
+        The caller must be an administrator of the tenant or the platform admin. The first user of a tenant
+        with no users becomes its administrator. New organizations sign up through POST /account/signup.
       operationId: register
       tags:
         - Account
-      security:
-        - {}
-        - bearerAuth: []
       parameters:
         - $ref: '#/parameters/TenantIdPath'
         - name: UserRegisterDto
@@ -279,34 +307,6 @@ paths:
         '500':
           $ref: '#/responses/500-InternalServerError'
 
-  /account/tenant/add:
-    post:
-      summary: Adds a tenant mapping
-      operationId: addTenant
-      tags:
-        - Account
-      security: [ ]
-      parameters:
-        - name: TenantAddDto
-          in: body
-          description: |
-            Details of the tenant to add
-          required: true
-          schema:
-            $ref: '#/definitions/TenantAddDto'
-      responses:
-        '201':
-          description: |
-            Created tenant mapping
-          schema:
-            $ref: '#/definitions/TenantMappingDto'
-        '400':
-          $ref: '#/responses/400-BadRequest'
-        '409':
-          $ref: '#/responses/409-Conflict'
-        '500':
-          $ref: '#/responses/500-InternalServerError'
-
   /account/tenant/{tenantId}/userId/{idUser}:
     get:
       summary: Gets a user by tenant and user ID
@@ -422,21 +422,15 @@ definitions:
       - password
       - email
 
-  TenantAddDto:
+  SignUpRequestDto:
     type: object
     description: |
-      Input for registering an organization. The identifier is assigned by the service
-      and returned on the response; it is not supplied by the caller.
+      Input for signing up an organization and its first administrator. The tenant identifier is assigned by
+      the service.
     properties:
       companyName:
         description: |
           Name of the organization. Must not already be registered
-        type: string
-        minLength: 1
-        maxLength: 255
-      contactName:
-        description: |
-          Name of the person responsible for the organization
         type: string
         minLength: 1
         maxLength: 255
@@ -446,17 +440,53 @@ definitions:
         type: string
         minLength: 1
         maxLength: 40
+      idUser:
+        description: |
+          Unique identifier of the administrator
+        type: integer
+        format: int32
+        minimum: 1
+      password:
+        description: |
+          Password of the administrator
+        type: string
+        minLength: 1
+      firstName:
+        description: |
+          First name of the administrator, also part of the organization's contact name
+        type: string
+        minLength: 1
+        maxLength: 120
+      lastName:
+        description: |
+          Last name of the administrator, also part of the organization's contact name
+        type: string
+        minLength: 1
+        maxLength: 120
       email:
         description: |
-          Contact email address of the organization
+          Email of the administrator, also the organization's contact email
         type: string
         format: email
         maxLength: 255
     required:
       - companyName
-      - contactName
       - phone
+      - idUser
+      - password
+      - firstName
+      - lastName
       - email
+
+  SignUpResponseDto:
+    type: object
+    description: |
+      The organization and administrator created by a sign-up
+    properties:
+      tenant:
+        $ref: '#/definitions/TenantMappingDto'
+      admin:
+        $ref: '#/definitions/UserProfileDto'
 
   TenantMappingDto:
     type: object
