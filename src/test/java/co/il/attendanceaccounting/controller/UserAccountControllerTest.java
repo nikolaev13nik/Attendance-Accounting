@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UserAccountControllerTest extends BaseApiControllerTest {
 
     private static final String ACCOUNT_URL = "/account";
-    private static final String USER_URL = ACCOUNT_URL + "/user";
     private static final String LOGIN_URL = ACCOUNT_URL + "/login";
     private static final String TENANT_URL = ACCOUNT_URL + "/tenant/";
     private static final String ROLE_URL = "/role/";
@@ -50,10 +49,10 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user as the first user of an empty tenant registers them as administrator")
+    @DisplayName("POST /account/tenant/{tenantId}/user as the first user of an empty tenant registers them as administrator")
     void registerNewUserTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL,
-                createUserRegisterDto(99, NEW_USER_PWD, "New", "User", "new.user@example.com", NEW_TENANT_ID), null,
+        ResponseEntity<String> response = send(HttpMethod.POST, registerUrl(NEW_TENANT_ID),
+                createUserRegisterDto(99, NEW_USER_PWD, "New", "User", "new.user@example.com"), null,
                 null);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
@@ -73,18 +72,18 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user for the second user of a tenant grants only the default 'USER' role")
+    @DisplayName("POST /account/tenant/{tenantId}/user for the second user of a tenant grants only the default 'USER' role")
     void registerSecondUserInTenantTest() {
-        ResponseEntity<String> first = send(HttpMethod.POST, USER_URL,
-                createUserRegisterDto(99, NEW_USER_PWD, "First", "User", "first.user@example.com", NEW_TENANT_ID), null,
+        ResponseEntity<String> first = send(HttpMethod.POST, registerUrl(NEW_TENANT_ID),
+                createUserRegisterDto(99, NEW_USER_PWD, "First", "User", "first.user@example.com"), null,
                 null);
         assertEquals(HttpStatus.CREATED, first.getStatusCode());
         assertTrue(readObject(first, UserProfileDto.class).getRoles().contains(ADMINISTRATOR_ROLE),
                 "Reason: the first registration must be the administrator for this test to be meaningful");
 
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL,
-                createUserRegisterDto(92, NEW_USER_PWD, "Second", "User", "second.user@example.com", NEW_TENANT_ID),
-                null, null);
+        ResponseEntity<String> response = sendWithToken(HttpMethod.POST, registerUrl(NEW_TENANT_ID),
+                createUserRegisterDto(92, NEW_USER_PWD, "Second", "User", "second.user@example.com"),
+                obtainToken(99, NEW_USER_PWD, NEW_TENANT_ID));
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
         assertEquals(Set.of(USER_ROLE), body.getRoles(),
@@ -96,18 +95,17 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user as the first user of a tenant can then use an administrator-only endpoint")
+    @DisplayName("POST /account/tenant/{tenantId}/user as the first user of a tenant can then use an administrator-only endpoint")
     void firstUserOfTenantIsAuthorizedAsAdminTest() {
-        ResponseEntity<String> admin = send(HttpMethod.POST, USER_URL,
-                createUserRegisterDto(91, NEW_USER_PWD, "Tenant", "Admin", "tenant.admin@example.com", NEW_TENANT_ID),
+        ResponseEntity<String> admin = send(HttpMethod.POST, registerUrl(NEW_TENANT_ID),
+                createUserRegisterDto(91, NEW_USER_PWD, "Tenant", "Admin", "tenant.admin@example.com"),
                 null, null);
         assertEquals(HttpStatus.CREATED, admin.getStatusCode());
-        ResponseEntity<String> member = send(HttpMethod.POST, USER_URL,
-                createUserRegisterDto(90, NEW_USER_PWD, "Tenant", "Member", "tenant.member@example.com", NEW_TENANT_ID),
-                null, null);
+        String token = obtainToken(91, NEW_USER_PWD, NEW_TENANT_ID);
+        ResponseEntity<String> member = sendWithToken(HttpMethod.POST, registerUrl(NEW_TENANT_ID),
+                createUserRegisterDto(90, NEW_USER_PWD, "Tenant", "Member", "tenant.member@example.com"), token);
         assertEquals(HttpStatus.CREATED, member.getStatusCode());
 
-        String token = obtainToken(91, NEW_USER_PWD, NEW_TENANT_ID);
         ResponseEntity<String> response = sendWithToken(HttpMethod.POST, roleUrl(NEW_TENANT_ID, 90, "Administrator"),
                 null, token);
         assertEquals(HttpStatus.OK, response.getStatusCode(),
@@ -117,15 +115,15 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user into a tenant whose users were all removed grants administrator again")
+    @DisplayName("POST /account/tenant/{tenantId}/user into a tenant whose users were all removed grants administrator again")
     void registerIntoEmptiedTenantTest() throws Exception {
         ResponseEntity<String> deleted = sendWithToken(HttpMethod.DELETE,
                 userUrl(OTHER_USER_TENANT_ID, OTHER_USER_ID), null, platformAdminToken());
         assertEquals(HttpStatus.OK, deleted.getStatusCode());
         assertFalse(userRepository.existsById(OTHER_USER_ID));
 
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL,
-                createUserRegisterDto(89, NEW_USER_PWD, "New", "Owner", "new.owner@example.com", OTHER_USER_TENANT_ID),
+        ResponseEntity<String> response = send(HttpMethod.POST, registerUrl(OTHER_USER_TENANT_ID),
+                createUserRegisterDto(89, NEW_USER_PWD, "New", "Owner", "new.owner@example.com"),
                 null, null);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), readObject(response, UserProfileDto.class).getRoles(),
@@ -135,10 +133,10 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user with an existing id returns 409 CONFLICT")
+    @DisplayName("POST /account/tenant/{tenantId}/user with an existing id returns 409 CONFLICT")
     void registerExistingUserTest() {
         long before = userRepository.count();
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(USER_ID, "pw", "Dup", "User", "dup@example.com", NEW_TENANT_ID), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, registerUrl(NEW_TENANT_ID), createUserRegisterDto(USER_ID, "pw", "Dup", "User", "dup@example.com"), null, null);
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         assertEquals("user exists", errorMessage(response));
         assertEquals(before, userRepository.count(), "Reason: no user should be added");
@@ -146,10 +144,10 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user with a malformed email returns 400 BAD_REQUEST")
+    @DisplayName("POST /account/tenant/{tenantId}/user with a malformed email returns 400 BAD_REQUEST")
     void registerWithInvalidEmailTest() {
         long before = userRepository.count();
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(98, "pw", "New", "User", "not-an-email", NEW_TENANT_ID), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, registerUrl(NEW_TENANT_ID), createUserRegisterDto(98, "pw", "New", "User", "not-an-email"), null, null);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(before, userRepository.count(), "Reason: no user should be added");
         assertFalse(userRepository.existsById(98));
@@ -157,10 +155,10 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user without an email returns 400 BAD_REQUEST")
+    @DisplayName("POST /account/tenant/{tenantId}/user without an email returns 400 BAD_REQUEST")
     void registerWithMissingEmailTest() {
         long before = userRepository.count();
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(97, "pw", "New", "User", null, NEW_TENANT_ID), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, registerUrl(NEW_TENANT_ID), createUserRegisterDto(97, "pw", "New", "User", null), null, null);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(before, userRepository.count(), "Reason: no user should be added");
         assertFalse(userRepository.existsById(97));
@@ -168,10 +166,10 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user without a tenantId returns 400 BAD_REQUEST")
-    void registerWithMissingTenantIdTest() {
+    @DisplayName("POST /account/tenant/{tenantId}/user with a non-numeric tenantId returns 400 BAD_REQUEST")
+    void registerWithMalformedTenantIdTest() {
         long before = userRepository.count();
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(96, "pw", "New", "User", "new.user2@example.com", null), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, TENANT_URL + "abc/user", createUserRegisterDto(96, "pw", "New", "User", "new.user2@example.com"), null, null);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(before, userRepository.count(), "Reason: no user should be added");
         assertFalse(userRepository.existsById(96));
@@ -179,10 +177,10 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user with a tenantId missing from att_ac_tenant_mapping returns 400 BAD_REQUEST")
+    @DisplayName("POST /account/tenant/{tenantId}/user with a tenantId missing from att_ac_tenant_mapping returns 400 BAD_REQUEST")
     void registerWithUnknownTenantIdTest() {
         long before = userRepository.count();
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL, createUserRegisterDto(95, "pw", "New", "User", "new.user3@example.com", UNKNOWN_TENANT_ID), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, registerUrl(UNKNOWN_TENANT_ID), createUserRegisterDto(95, "pw", "New", "User", "new.user3@example.com"), null, null);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals("Tenant with id = " + UNKNOWN_TENANT_ID + " not found", errorMessage(response));
         assertEquals(before, userRepository.count(), "Reason: no user should be added for an unknown tenant");
@@ -191,11 +189,10 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user into a seeded tenant registers the user as a plain user")
+    @DisplayName("POST /account/tenant/{tenantId}/user by that tenant's admin registers the user as a plain user")
     void registerWithSeededTenantIdTest() {
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL,
-                createUserRegisterDto(94, NEW_USER_PWD, "New", "User", "new.user4@example.com",
-                TENANT_ID_100), null, null);
+        ResponseEntity<String> response = send(HttpMethod.POST, registerUrl(TENANT_ID_100),
+                createUserRegisterDto(94, NEW_USER_PWD, "New", "User", "new.user4@example.com"), ADMIN_ID, ADMIN_PWD);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         UserProfileDto body = readObject(response, UserProfileDto.class);
         assertEquals(TENANT_ID_100, body.getTenantId());
@@ -207,15 +204,15 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/user succeeds in a tenant added through POST /account/tenant/add")
+    @DisplayName("POST /account/tenant/{tenantId}/user succeeds in a tenant added through POST /account/tenant/add")
     void registerAfterAddingTenantTest() {
         ResponseEntity<String> tenantResponse = send(HttpMethod.POST, TENANT_ADD_URL,
                 createTenantAddDto("Initrode", "Bob Slydell", "+1-555-0400", "admin@initrode.local"), null, null);
         assertEquals(HttpStatus.CREATED, tenantResponse.getStatusCode());
         Integer addedTenantId = readObject(tenantResponse, TenantMappingDto.class).getTenantId();
 
-        ResponseEntity<String> response = send(HttpMethod.POST, USER_URL,
-                createUserRegisterDto(93, NEW_USER_PWD, "New", "User", "new.user5@example.com", addedTenantId), null,
+        ResponseEntity<String> response = send(HttpMethod.POST, registerUrl(addedTenantId),
+                createUserRegisterDto(93, NEW_USER_PWD, "New", "User", "new.user5@example.com"), null,
                 null);
         assertEquals(HttpStatus.CREATED, response.getStatusCode(),
                 "Reason: registration must accept a tenant that was just onboarded through the add-tenant API");
@@ -251,8 +248,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("POST /account/login for a user whose tenant has no mapping row returns a profile without companyName")
     void loginUnmappedTenantTest() {
-        send(HttpMethod.POST, USER_URL,
-                createUserRegisterDto(98, NEW_USER_PWD, "No", "Tenant", "no.tenant@example.com", NEW_TENANT_ID),
+        send(HttpMethod.POST, registerUrl(NEW_TENANT_ID),
+                createUserRegisterDto(98, NEW_USER_PWD, "No", "Tenant", "no.tenant@example.com"),
                 null, null);
         tenantMappingRepository.deleteById(NEW_TENANT_ID);
 
@@ -352,9 +349,8 @@ class UserAccountControllerTest extends BaseApiControllerTest {
     @FlywayTest
     @DisplayName("DELETE /account/tenant/{tenantId}/user/{id} for the bootstrap super-admin keeps the existing row")
     void deleteProtectedAdminKeepsRowTest() {
-        ResponseEntity<String> created = send(HttpMethod.POST, USER_URL,
-                createUserRegisterDto(PROTECTED_ADMIN_ID, "pw", "Super", "Admin", "super.admin@example.com",
-                        NEW_TENANT_ID), null, null);
+        ResponseEntity<String> created = send(HttpMethod.POST, registerUrl(NEW_TENANT_ID),
+                createUserRegisterDto(PROTECTED_ADMIN_ID, "pw", "Super", "Admin", "super.admin@example.com"), null, null);
         assertEquals(HttpStatus.CREATED, created.getStatusCode());
 
         ResponseEntity<String> response = send(HttpMethod.DELETE, userUrl(USER_TENANT_ID, PROTECTED_ADMIN_ID), null, ADMIN_ID,
@@ -854,6 +850,77 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         assertEquals(Set.of(USER_ROLE), userRepository.findById(ADMIN_ID).orElseThrow().getRoles());
     }
 
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/{tenantId}/user anonymously into a tenant that has users returns 401 and adds nobody")
+    void registerAnonymouslyIntoPopulatedTenantTest() {
+        long before = userRepository.count();
+        ResponseEntity<String> response = send(HttpMethod.POST, registerUrl(TENANT_ID_100),
+                createUserRegisterDto(88, NEW_USER_PWD, "Stranger", "Danger", "stranger@example.com"), null, null);
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode(),
+                "Reason: only the first user of an empty tenant may self-register, anyone else must be added by an admin");
+        assertEquals(before, userRepository.count());
+        assertFalse(userRepository.existsById(88));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/{tenantId}/user anonymously with a taken id into a populated tenant returns 401, not 409")
+    void registerAnonymouslyWithTakenIdDoesNotRevealItTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, registerUrl(TENANT_ID_100),
+                createUserRegisterDto(OTHER_USER_ID, NEW_USER_PWD, "Probe", "Probe", "probe@example.com"), null, null);
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode(),
+                "Reason: the caller check runs first, so a stranger cannot learn which user ids exist");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/{tenantId}/user by a plain user of that tenant returns 403")
+    void registerAsPlainUserTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, registerUrl(USER_TENANT_ID),
+                createUserRegisterDto(87, NEW_USER_PWD, "New", "Colleague", "colleague@example.com"), USER_ID, USER_PWD);
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
+        assertFalse(userRepository.existsById(87));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/{tenantId}/user by an admin of another tenant returns 403")
+    void registerAsAdminOfOtherTenantTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, registerUrl(OTHER_USER_TENANT_ID),
+                createUserRegisterDto(86, NEW_USER_PWD, "Planted", "User", "planted@example.com"), ADMIN_ID, ADMIN_PWD);
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode(),
+                "Reason: an admin adds users to its own company only");
+        assertEquals(FORBIDDEN_MESSAGE, errorMessage(response));
+        assertFalse(userRepository.existsById(86));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/{tenantId}/user by the platform admin adds a plain user to a populated tenant")
+    void registerAsPlatformAdminIntoPopulatedTenantTest() throws Exception {
+        ResponseEntity<String> response = sendWithToken(HttpMethod.POST, registerUrl(OTHER_USER_TENANT_ID),
+                createUserRegisterDto(85, NEW_USER_PWD, "Support", "Added", "support.added@example.com"),
+                platformAdminToken());
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        User created = userRepository.findById(85).orElseThrow();
+        assertEquals(OTHER_USER_TENANT_ID, created.getTenantId());
+        assertEquals(Set.of(USER_ROLE), created.getRoles());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/tenant/{tenantId}/user by the platform admin into an empty tenant creates its administrator")
+    void registerAsPlatformAdminIntoEmptyTenantTest() throws Exception {
+        ResponseEntity<String> response = sendWithToken(HttpMethod.POST, registerUrl(NEW_TENANT_ID),
+                createUserRegisterDto(84, NEW_USER_PWD, "First", "Owner", "first.owner@example.com"),
+                platformAdminToken());
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(Set.of(USER_ROLE, ADMINISTRATOR_ROLE), userRepository.findById(84).orElseThrow().getRoles(),
+                "Reason: the platform admin can set up a company's first administrator on its behalf");
+    }
+
     private String platformAdminToken() throws Exception {
         application.run();
         return obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, PLATFORM_TENANT_ID);
@@ -861,6 +928,10 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     private String userByTenantUrl(Integer tenantId, Integer idUser) {
         return TENANT_URL + tenantId + "/userId/" + idUser;
+    }
+
+    private String registerUrl(Integer tenantId) {
+        return TENANT_URL + tenantId + "/user";
     }
 
     private String userUrl(Integer tenantId, Integer idUser) {

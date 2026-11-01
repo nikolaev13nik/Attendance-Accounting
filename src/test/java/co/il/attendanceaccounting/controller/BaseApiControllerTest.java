@@ -181,14 +181,13 @@ public abstract class BaseApiControllerTest {
     }
 
     // Helper builders matching Dto properties
-    protected UserRegisterDto createUserRegisterDto(Integer idUser, String password, String firstName, String lastName, String email, Integer tenantId) {
+    protected UserRegisterDto createUserRegisterDto(Integer idUser, String password, String firstName, String lastName, String email) {
         return UserRegisterDto.builder()
                 .idUser(idUser)
                 .password(password)
                 .firstName(firstName)
                 .lastName(lastName)
                 .email(email)
-                .tenantId(tenantId)
                 .build();
     }
 

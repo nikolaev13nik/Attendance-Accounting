@@ -109,7 +109,7 @@ public class SecurityConfiguration {
 				.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
 				.requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
 				.requestMatchers(HttpMethod.POST, "/account/login").permitAll()
-				.requestMatchers(HttpMethod.POST, "/account/user").permitAll()
+				.requestMatchers(HttpMethod.POST, "/account/tenant/*/user").permitAll()
 				.requestMatchers(HttpMethod.POST, "/account/tenant/add").permitAll()
 				.anyRequest().authenticated()
 		);

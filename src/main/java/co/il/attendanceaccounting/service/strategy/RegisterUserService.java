@@ -1,5 +1,8 @@
 package co.il.attendanceaccounting.service.strategy;
 
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashSet;
@@ -10,34 +13,50 @@ import co.il.attendanceaccounting.dto.UserRegisterDto;
 import co.il.attendanceaccounting.exceptions.TenantNotFoundException;
 import co.il.attendanceaccounting.exceptions.UserExistsException;
 import co.il.attendanceaccounting.model.User;
+import co.il.attendanceaccounting.security.JwtClaimsResolver;
 import co.il.attendanceaccounting.service.base.AccountServiceBase;
 
 import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
 import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.USER;
+import static org.apache.commons.lang3.BooleanUtils.isFalse;
 
 @Service
 public class RegisterUserService extends AccountServiceBase<UserRegisterDto> {
 
+    private static final String FORBIDDEN = "Forbidden";
+
     @Override
     protected void fetch(AccountContext<UserRegisterDto> context) {
-        context.setTenantHasUsers(userRepository.existsByTenantId(context.getTask().getTenantId()));
+        context.setTenantHasUsers(userRepository.existsByTenantId(context.getTenantId()));
     }
 
     @Override
     protected void validate(AccountContext<UserRegisterDto> context) {
-        UserRegisterDto userRegisterDto = context.getTask();
-        if (userRepository.existsById(userRegisterDto.getIdUser())) {
+        Integer tenantId = context.getTenantId();
+        if (isFalse(tenantMappingRepository.existsById(tenantId))) {
+            throw new TenantNotFoundException(String.valueOf(tenantId));
+        }
+        ensureCallerMayRegisterInto(tenantId, context.isTenantHasUsers());
+        if (userRepository.existsById(context.getTask().getIdUser())) {
             throw new UserExistsException();
         }
-        Integer tenantId = userRegisterDto.getTenantId();
-        if (tenantId == null || !tenantMappingRepository.existsById(tenantId)) {
-            throw new TenantNotFoundException(String.valueOf(tenantId));
+    }
+
+    private void ensureCallerMayRegisterInto(Integer tenantId, boolean tenantHasUsers) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (JwtClaimsResolver.isJwtAuthenticated(auth)) {
+            if (!JwtClaimsResolver.isPlatformAdmin(auth) && !JwtClaimsResolver.isAdministratorOf(auth, tenantId)) {
+                throw new AccessDeniedException(FORBIDDEN);
+            }
+        } else if (tenantHasUsers) {
+            throw new AccessDeniedException(FORBIDDEN);
         }
     }
 
     @Override
     protected void executeBusiness(AccountContext<UserRegisterDto> context) {
         User user = userMapper.toEntity(context.getTask());
+        user.setTenantId(context.getTenantId());
         encodePassword(user, context.getTask().getPassword());
         user.setRoles(rolesForNewUser(context));
         context.getUsers().add(user);

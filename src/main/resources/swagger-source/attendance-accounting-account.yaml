@@ -66,14 +66,20 @@ paths:
         '500':
           $ref: '#/responses/500-InternalServerError'
 
-  /account/user:
+  /account/tenant/{tenantId}/user:
     post:
-      summary: Registers a new user
+      summary: Registers a new user in a tenant
+      description: |
+        Anonymous callers may register only into a tenant that has no users yet; that first user becomes its
+        administrator. Otherwise the caller must be an administrator of the tenant or the platform admin.
       operationId: register
       tags:
         - Account
-      security: []
+      security:
+        - {}
+        - bearerAuth: []
       parameters:
+        - $ref: '#/parameters/TenantIdPath'
         - name: UserRegisterDto
           in: body
           description: |
@@ -89,6 +95,10 @@ paths:
             $ref: '#/definitions/UserProfileDto'
         '400':
           $ref: '#/responses/400-BadRequest'
+        '401':
+          $ref: '#/responses/401-Unauthorized'
+        '403':
+          $ref: '#/responses/403-Forbidden'
         '409':
           $ref: '#/responses/409-Conflict'
         '500':
@@ -407,17 +417,10 @@ definitions:
           Email address of the user
         type: string
         format: email
-      tenantId:
-        description: |
-          Identifier of the tenant the user belongs to
-        type: integer
-        format: int32
-        minimum: 1
     required:
       - idUser
       - password
       - email
-      - tenantId
 
   TenantAddDto:
     type: object

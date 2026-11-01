@@ -44,9 +44,10 @@ public class UserAccountController implements AccountApi {
     private final LoginService loginService;
 
     @Override
-    public ResponseEntity<UserProfileDto> register(@RequestBody UserRegisterDto userRegisterDto) {
+    public ResponseEntity<UserProfileDto> register(@PathVariable Integer tenantId,
+                                                   @RequestBody UserRegisterDto userRegisterDto) {
         AccountContext<UserRegisterDto> context = AccountContext.<UserRegisterDto>builder()
-                .task(userRegisterDto).build();
+                .tenantId(tenantId).task(userRegisterDto).build();
         registerUserService.execute(context);
         return ResponseEntity.status(HttpStatus.CREATED).body(context.getSingleResponseUserProfileDto());
     }

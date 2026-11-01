@@ -23,6 +23,7 @@ public interface UserMapper {
     @Mapping(target = "password", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "role", ignore = true)
+    @Mapping(target = "tenantId", ignore = true)
     User toEntity(UserRegisterDto userRegisterDto);
 
 }
