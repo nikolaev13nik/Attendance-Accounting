@@ -3,6 +3,8 @@ package co.il.attendanceaccounting.service.strategy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 import co.il.attendanceaccounting.context.AccountContext;
 import co.il.attendanceaccounting.dto.LoginRequestDto;
 import co.il.attendanceaccounting.model.TenantMapping;
@@ -16,19 +18,32 @@ public class LoginService extends AccountServiceBase<LoginRequestDto> {
     private AuthenticationService authenticationService;
 
     @Override
+    protected void fetch(AccountContext<LoginRequestDto> context) {
+        LoginRequestDto request = context.getTask();
+        findTenantMapping(request).ifPresentOrElse(tenantMapping -> {
+            context.setTenantId(tenantMapping.getTenantId());
+            context.setCompanyName(tenantMapping.getCompanyName());
+        }, () -> context.setTenantId(request.getTenantId()));
+    }
+
+    @Override
     protected void validate(AccountContext<LoginRequestDto> context) {
         authenticationService.authenticate(context);
     }
 
     @Override
-    protected void executeBusiness(AccountContext<LoginRequestDto> context) {
-        context.setCompanyName(tenantMappingRepository.findById(context.getSingleUser().getTenantId())
-                .map(TenantMapping::getCompanyName)
-                .orElse(null));
-    }
-
-    @Override
     protected void mapResult(AccountContext<LoginRequestDto> context) {
         context.getLoginResponseDto().setProfile(userMapper.toDto(context.getSingleUser(), context.getCompanyName()));
+    }
+
+    private Optional<TenantMapping> findTenantMapping(LoginRequestDto request) {
+        if (request.getTenantId() == null) {
+            String companyName = request.getCompanyName();
+            if (companyName == null || companyName.isBlank()) {
+                return Optional.empty();
+            }
+            return tenantMappingRepository.findByCompanyNameIgnoreCase(companyName.trim());
+        }
+        return tenantMappingRepository.findById(request.getTenantId());
     }
 }

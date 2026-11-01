@@ -52,7 +52,7 @@ paths:
           in: body
           description: |
             Credentials of the user and the organization the user belongs to
-          required: false
+          required: true
           schema:
             $ref: '#/definitions/LoginRequestDto'
       responses:
@@ -61,6 +61,8 @@ paths:
             Issued token and the profile of the authenticated user
           schema:
             $ref: '#/definitions/LoginResponseDto'
+        '400':
+          $ref: '#/responses/400-BadRequest'
         '401':
           $ref: '#/responses/401-Unauthorized'
         '500':
@@ -366,6 +368,9 @@ definitions:
         description: |
           Name of the organization the user belongs to, used when tenantId is not given
         type: string
+    required:
+      - idUser
+      - password
 
   LoginResponseDto:
     type: object

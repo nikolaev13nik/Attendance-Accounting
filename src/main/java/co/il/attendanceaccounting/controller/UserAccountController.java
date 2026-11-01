@@ -117,7 +117,7 @@ public class UserAccountController implements AccountApi {
     }
 
     @Override
-    public ResponseEntity<LoginResponseDto> login(@RequestBody(required = false) LoginRequestDto loginRequestDto) {
+    public ResponseEntity<LoginResponseDto> login(@RequestBody LoginRequestDto loginRequestDto) {
         AccountContext<LoginRequestDto> context = AccountContext.<LoginRequestDto>builder()
                 .task(loginRequestDto).build();
         loginService.execute(context);

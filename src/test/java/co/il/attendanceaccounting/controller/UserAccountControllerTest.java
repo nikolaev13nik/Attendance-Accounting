@@ -278,11 +278,31 @@ class UserAccountControllerTest extends BaseApiControllerTest {
 
     @Test
     @FlywayTest
-    @DisplayName("POST /account/login without credentials returns 401 UNAUTHORIZED")
+    @DisplayName("POST /account/login without credentials returns 400 BAD_REQUEST")
     void loginAnonymousTest() {
         ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, createLoginRequestDto(null, null, null, null),
                 null, null);
-        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(),
+                "Reason: idUser and password are required by the contract");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/login without a password returns 400 BAD_REQUEST")
+    void loginMissingPasswordTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL,
+                createLoginRequestDto(USER_ID, null, USER_TENANT_ID, null), null, null);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(),
+                "Reason: password is required by the contract");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/login without a body returns 400 BAD_REQUEST")
+    void loginWithoutBodyTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, LOGIN_URL, null, null, null);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(),
+                "Reason: the login body is required by the contract");
     }
 
     @Test

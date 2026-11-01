@@ -52,8 +52,9 @@ interface (`co.il.attendanceaccounting.api`) and DTOs (`co.il.attendanceaccounti
 `target/generated-sources`. `UserAccountController` implements `AccountApi`. **To add/change an endpoint,
 edit the yaml first**, then rebuild so the interface regenerates, then implement the method. Bean
 validation annotations on the DTOs come from the spec (`performBeanValidation`), so input rules like
-"email must be a valid email" are declared there, not in Java. The login body is `required: false` with no
-required fields on purpose: an empty or partial body must reach authentication and get 401, not 400.
+"email must be a valid email" are declared there, not in Java. The login body is required, and so are `idUser`
+and `password`: a missing body or credential is 400. `tenantId` and `companyName` stay optional because the
+caller sends one or the other; giving neither, or naming an unknown organization, is 401 from authentication.
 
 **Spec consumers exist outside this repo.** `Attendance-TimeTracking` keeps a verbatim copy of this yaml
 (`src/main/resources/swagger-source/attendance-accounting-account.yaml`) to generate its outbound client,
