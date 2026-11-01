@@ -64,7 +64,7 @@ public class UserAccountController implements AccountApi {
                 .build());
     }
 
-    @PreAuthorize("hasRole(T(co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
+    @PreAuthorize("hasRole(T(co.il.attendance.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
     @Override
     public ResponseEntity<UserProfileDto> removeUser(@PathVariable Integer tenantId, @PathVariable Integer idUser) {
         AccountContext<Void> context = AccountContext.<Void>builder().userBasicKey(new UserBasicKey(tenantId, idUser)).build();
@@ -72,7 +72,7 @@ public class UserAccountController implements AccountApi {
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
 
-    @PreAuthorize("hasRole(T(co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name()) || #idUser.toString() == authentication.name")
+    @PreAuthorize("hasRole(T(co.il.attendance.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name()) || #idUser.toString() == authentication.name")
     @Override
     public ResponseEntity<UserProfileDto> editUser(@PathVariable Integer tenantId, @PathVariable Integer idUser,
                                                    @RequestBody UserEditDto userEditDto) {
@@ -82,7 +82,7 @@ public class UserAccountController implements AccountApi {
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
 
-    @PreAuthorize("hasRole(T(co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
+    @PreAuthorize("hasRole(T(co.il.attendance.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
     @Override
     public ResponseEntity<UserProfileDto> addRole(@PathVariable Integer tenantId, @PathVariable Integer idUser,
                                                   @PathVariable String role) {
@@ -92,7 +92,7 @@ public class UserAccountController implements AccountApi {
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
 
-    @PreAuthorize("hasRole(T(co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
+    @PreAuthorize("hasRole(T(co.il.attendance.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
     @Override
     public ResponseEntity<UserProfileDto> removeRole(@PathVariable Integer tenantId, @PathVariable Integer idUser,
                                                   @PathVariable String role) {

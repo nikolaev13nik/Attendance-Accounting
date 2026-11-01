@@ -16,8 +16,8 @@ import co.il.attendanceaccounting.model.User;
 import co.il.attendanceaccounting.model.UserBasicKey;
 import jakarta.transaction.Transactional;
 
-import static co.il.attendanceaccounting.security.SecurityConstants.PLATFORM_TENANT_ID;
-import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
+import static co.il.attendance.security.SecurityConstants.PLATFORM_TENANT_ID;
+import static co.il.attendance.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
 
 public abstract class AccountServiceBase<R> implements BaseService<R> {
 

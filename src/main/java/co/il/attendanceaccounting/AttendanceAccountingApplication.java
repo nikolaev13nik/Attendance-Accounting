@@ -18,8 +18,8 @@ import co.il.attendanceaccounting.model.User;
 import co.il.attendanceaccounting.model.UserBasicKey;
 import lombok.extern.slf4j.Slf4j;
 
-import static co.il.attendanceaccounting.security.SecurityConstants.PLATFORM_TENANT_ID;
-import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.PLATFORM_ADMIN;
+import static co.il.attendance.security.SecurityConstants.PLATFORM_TENANT_ID;
+import static co.il.attendance.security.SecurityConstants.SecurityRoles.PLATFORM_ADMIN;
 import static org.apache.commons.lang3.BooleanUtils.isFalse;
 
 @Slf4j

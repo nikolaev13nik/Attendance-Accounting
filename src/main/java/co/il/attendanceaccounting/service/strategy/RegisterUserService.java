@@ -14,11 +14,11 @@ import co.il.attendanceaccounting.exceptions.TenantNotFoundException;
 import co.il.attendanceaccounting.exceptions.UserExistsException;
 import co.il.attendanceaccounting.model.User;
 import co.il.attendanceaccounting.model.UserBasicKey;
-import co.il.attendanceaccounting.security.JwtClaimsResolver;
+import co.il.attendance.security.JwtClaimsResolver;
 import co.il.attendanceaccounting.service.base.AccountServiceBase;
 
-import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
-import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.USER;
+import static co.il.attendance.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
+import static co.il.attendance.security.SecurityConstants.SecurityRoles.USER;
 import static org.apache.commons.lang3.BooleanUtils.isFalse;
 
 @Service

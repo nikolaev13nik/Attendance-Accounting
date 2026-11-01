@@ -7,8 +7,8 @@ import co.il.attendanceaccounting.context.AccountContext;
 import co.il.attendanceaccounting.exceptions.ProtectedUserException;
 import co.il.attendanceaccounting.exceptions.RoleNotAllowedException;
 
-import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
-import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.USER;
+import static co.il.attendance.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
+import static co.il.attendance.security.SecurityConstants.SecurityRoles.USER;
 import static org.apache.commons.lang3.BooleanUtils.isFalse;
 
 public abstract class RoleServiceBase extends AccountServiceBase<Void> {

@@ -6,8 +6,6 @@ import org.springframework.boot.security.autoconfigure.web.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
-import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -24,9 +22,8 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.access.AccessDeniedHandlerImpl;
+import org.springframework.security.web.access.AccessDeniedHandler;
 
 import java.nio.charset.StandardCharsets;
 
@@ -34,11 +31,6 @@ import javax.crypto.spec.SecretKeySpec;
 
 import co.il.attendanceaccounting.configuration.AccountConfiguration;
 import jakarta.servlet.DispatcherType;
-
-import static co.il.attendanceaccounting.security.SecurityConstants.AUTHORITIES;
-import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
-import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.PLATFORM_ADMIN;
-import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.USER;
 
 @Configuration
 @EnableWebSecurity
@@ -57,14 +49,6 @@ public class SecurityConfiguration {
 	}
 
 	@Bean
-	static RoleHierarchy roleHierarchy() {
-		return RoleHierarchyImpl.withDefaultRolePrefix()
-				.role(PLATFORM_ADMIN.name()).implies(ADMINISTRATOR.name())
-				.role(ADMINISTRATOR.name()).implies(USER.name())
-				.build();
-	}
-
-	@Bean
 	WebSecurityCustomizer webSecurityCustomizer() {
 		return web -> web.ignoring().requestMatchers(PathRequest.toH2Console());
 	}
@@ -80,16 +64,6 @@ public class SecurityConfiguration {
 	}
 
 	@Bean
-	JwtAuthenticationConverter jwtAuthenticationConverter(){
-		JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
-		authoritiesConverter.setAuthoritiesClaimName(AUTHORITIES);
-		authoritiesConverter.setAuthorityPrefix("ROLE_");
-		JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-		converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
-		return converter;
-	}
-
-	@Bean
 	AuthenticationManager authenticationManager(UserDetailsService userDetailsService, PasswordEncoder passwordEncoder){
 		DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
 		provider.setPasswordEncoder(passwordEncoder);
@@ -97,9 +71,10 @@ public class SecurityConfiguration {
 	}
 
 	@Bean
-	SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationConverter jwtAuthenticationConverter) {
+	SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationConverter jwtAuthenticationConverter,
+									 AccessDeniedHandler accessDeniedHandler) {
 		http.oauth2ResourceServer(oauth2 ->oauth2.jwt(jwt ->jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)));
-		http.exceptionHandling(ex->ex.accessDeniedHandler(new AccessDeniedHandlerImpl()));
+		http.exceptionHandling(ex->ex.accessDeniedHandler(accessDeniedHandler));
 
 		http.csrf(csrf -> csrf.disable());
 		http.cors(cors -> cors.disable());

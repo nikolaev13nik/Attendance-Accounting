@@ -14,8 +14,8 @@ import java.util.List;
 
 import co.il.attendanceaccounting.configuration.AccountConfiguration;
 
-import static co.il.attendanceaccounting.security.SecurityConstants.AUTHORITIES;
-import static co.il.attendanceaccounting.security.SecurityConstants.TENANT_ID;
+import static co.il.attendance.security.SecurityConstants.AUTHORITIES;
+import static co.il.attendance.security.SecurityConstants.TENANT_ID;
 
 @Service
 public class JwtService {

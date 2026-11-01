@@ -122,7 +122,7 @@ the role endpoints (`RoleServiceBase`) accept only `USER` and `ADMINISTRATOR` in
 uppercase; anything else, `PLATFORM_ADMIN` included, is 400 `RoleNotAllowedException`. Older rows may
 still hold `"User"`/`"Administrator"`, so `User.hasRole`/`removeRole` compare ignoring case and
 `UserDetailsServiceImpl` uppercases into authorities. The JWT carries `["USER"]` / `["ADMINISTRATOR"]`, and
-every service adds the `ROLE_` prefix in its `JwtAuthenticationConverter` before `hasRole(...)` checks.
+the shared `JwtAuthenticationConverter` adds the `ROLE_` prefix before `hasRole(...)` checks.
 
 The bootstrap account is protected: deleting it or changing its roles is 403 `ProtectedUserException`.
 A tenant always keeps one administrator: removing `ADMINISTRATOR` from, or deleting, its last admin is
@@ -136,8 +136,16 @@ key only; a user with the same id in another tenant is an ordinary user.
 
 ### Authorization
 
-Roles are `USER`, `ADMINISTRATOR` (admin of one tenant) and `PLATFORM_ADMIN` (the bootstrap account). A
-`RoleHierarchy` bean in `SecurityConfiguration` makes `PLATFORM_ADMIN > ADMINISTRATOR > USER`, so
+**The shared security code lives in `../attendance-security-common-lib`** (`co.il.attendance.security`,
+published to GitHub Packages and pulled in as a Maven dependency; bump `attendance-security-common-lib.version`
+in the pom to take a new release). Its Spring Boot auto-configuration provides `SecurityConstants` (roles, claim
+names, `PLATFORM_TENANT_ID`), `JwtClaimsResolver`, the `RoleHierarchy` and `JwtAuthenticationConverter` beans,
+`TenantInterceptor` and the `AccessDeniedHandler`. Change that behaviour in the library, not here, so
+TimeTracking gets the same change. Building needs a GitHub token with `read:packages` under server id `github`
+in `~/.m2/settings.xml`; CI uses its `GITHUB_TOKEN`.
+
+Roles are `USER`, `ADMINISTRATOR` (admin of one tenant) and `PLATFORM_ADMIN` (the bootstrap account). The
+shared `RoleHierarchy` makes `PLATFORM_ADMIN > ADMINISTRATOR > USER`, so
 `hasRole('ADMINISTRATOR')` also admits the platform admin. Rules are `@PreAuthorize` annotations on the
 controller methods, as in TimeTracking:
 
@@ -146,8 +154,8 @@ controller methods, as in TimeTracking:
   (`#idUser.toString() == authentication.name`).
 
 **Tenant isolation.** Every secured endpoint lives under `/account/tenant/{tenantId}/...`.
-`security.TenantInterceptor` (registered in `security.WebConfig` for all of `/account/tenant/**`, with no
-exclusions, mirroring TimeTracking) compares that path tenant with the JWT `tenantId` claim and
+The shared `TenantInterceptor` (registered for `attendance.security.tenant.path-patterns=/account/tenant/**`,
+with no exclusions; startup fails if the property is missing) compares that path tenant with the JWT `tenantId` claim and
 throws `AccessDeniedException` (403 `"Forbidden"`) on a mismatch, or when a matched endpoint has no
 `{tenantId}` in its path (fail closed). The one exception is the platform admin: `ROLE_PLATFORM_ADMIN`
 **and** JWT tenant `PLATFORM_TENANT_ID` (0) skips the comparison
@@ -161,14 +169,14 @@ and go through those helpers, never `findById`.
 administrator's name and email double as the tenant's contact name and email. There is deliberately no
 way to create a tenant without an administrator, because such a tenant could be claimed by whoever
 registers into it first. `POST /account/tenant/{tenantId}/user` (`RegisterUserService`) requires a token:
-the caller must be that tenant's ADMINISTRATOR or the platform admin (`security.JwtClaimsResolver`), checked
+the caller must be that tenant's ADMINISTRATOR or the platform admin (`JwtClaimsResolver`), checked
 before the unknown-tenant 400 and the taken-id 409. The first user of a tenant with no users becomes its
 ADMINISTRATOR, which only the platform admin can now trigger.
 
 `SecurityConfiguration.filterChain` keeps only the URL-level rules: `POST /account/login`,
 `POST /account/signup`, actuator health and the ERROR dispatch are public;
-everything else must be authenticated. `AccessDeniedHandlerImpl` is kept on purpose, so a 403 body carries
-message `"Forbidden"` (tests assert it). Method security runs after request binding and validation, so a
+everything else must be authenticated. It wires the shared `AccessDeniedHandler`, which answers every 403 with
+JSON message `"Forbidden"` (tests assert it). Method security runs after request binding and validation, so a
 malformed request from an unauthorized caller gets 400 rather than 403.
 
 Sessions are stateless, CSRF and CORS are disabled, and the H2 console is excluded from the filter chain.

@@ -22,6 +22,7 @@
 		<mapstruct.version>1.6.3</mapstruct.version>
 		<openapi-generator.version>7.23.0</openapi-generator.version>
 		<swagger-annotations.version>2.2.43</swagger-annotations.version>
+		<attendance-security-common-lib.version>0.1.0</attendance-security-common-lib.version>
 	</properties>
 
 	<dependencies>
@@ -118,7 +119,20 @@
 			<version>${flyway-spring-test.version}</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>co.il.attendance</groupId>
+			<artifactId>attendance-security-common-lib</artifactId>
+			<version>${attendance-security-common-lib.version}</version>
+		</dependency>
 	</dependencies>
+
+	<repositories>
+		<repository>
+			<id>github</id>
+			<name>GitHub Packages</name>
+			<url>https://maven.pkg.github.com/nikolaev13nik/attendance-security-common-lib</url>
+		</repository>
+	</repositories>
 
 	<build>
 		<plugins>

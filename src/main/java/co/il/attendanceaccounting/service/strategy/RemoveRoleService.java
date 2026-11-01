@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 import co.il.attendanceaccounting.context.AccountContext;
 import co.il.attendanceaccounting.service.base.RoleServiceBase;
 
-import static co.il.attendanceaccounting.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
+import static co.il.attendance.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
 
 @Service
 public class RemoveRoleService extends RoleServiceBase {

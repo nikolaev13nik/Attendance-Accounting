@@ -18,7 +18,7 @@ import co.il.attendanceaccounting.dto.LoginResponseDto;
 import co.il.attendanceaccounting.model.User;
 import co.il.attendanceaccounting.model.UserBasicKey;
 
-import static co.il.attendanceaccounting.security.SecurityConstants.PLATFORM_TENANT_ID;
+import static co.il.attendance.security.SecurityConstants.PLATFORM_TENANT_ID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
