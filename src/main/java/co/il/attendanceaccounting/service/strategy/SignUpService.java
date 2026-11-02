@@ -55,4 +55,9 @@ public class SignUpService extends AccountServiceBase<SignUpRequestDto> {
         super.mapResult(context);
         context.getResponseTenantMappingDto().add(tenantMappingMapper.toDto(context.getTenantMappings().get(0)));
     }
+
+    @Override
+    protected Integer targetUserId(AccountContext<SignUpRequestDto> context) {
+        return context.getTask().getIdUser();
+    }
 }

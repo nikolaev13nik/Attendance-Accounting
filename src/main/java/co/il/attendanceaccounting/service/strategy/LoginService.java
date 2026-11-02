@@ -46,4 +46,9 @@ public class LoginService extends AccountServiceBase<LoginRequestDto> {
         }
         return tenantMappingRepository.findById(request.getTenantId());
     }
+
+    @Override
+    protected Integer targetUserId(AccountContext<LoginRequestDto> context) {
+        return context.getTask().getIdUser();
+    }
 }

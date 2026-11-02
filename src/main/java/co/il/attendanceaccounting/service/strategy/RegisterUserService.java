@@ -67,4 +67,9 @@ public class RegisterUserService extends AccountServiceBase<UserRegisterDto> {
         }
         return roles;
     }
+
+    @Override
+    protected Integer targetUserId(AccountContext<UserRegisterDto> context) {
+        return context.getTask().getIdUser();
+    }
 }

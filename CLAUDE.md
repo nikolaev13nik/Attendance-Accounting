@@ -194,6 +194,19 @@ malformed request from an unauthorized caller gets 400 rather than 403.
 
 Sessions are stateless, CSRF and CORS are disabled, and the H2 console is excluded from the filter chain.
 
+### Logging
+
+Every log line carries the MDC from the shared library (`traceId`, `userId`, `tenantId`, `pathTenantId`)
+plus `targetUserId`, the user a strategy acts on. Locally it is text,
+`[traceId] [user=… tenant=… target=…]` (`logging.pattern.correlation` in `application.properties`); in
+Kubernetes the Helm chart sets `LOGGING_STRUCTURED_FORMAT_CONSOLE` (`logFormat` in `values.yaml`,
+`logstash`) and renames `level` to `severity` so GKE reads the level, which makes every MDC key a JSON field.
+`AccountServiceBase.executeWithoutTransactional` writes one line per strategy run: `completed` at INFO for every
+strategy, reads included; `rejected: <reason>` at WARN for a
+4xx `@ResponseStatus` exception; `failed` with the stack trace at ERROR for anything else. The target comes
+from `userBasicKey`, or from the request's `idUser` where `targetUserId(...)` is overridden (register,
+sign-up, login). Never log a password, token or email; `PipelineLoggingTest` checks the login case.
+
 ### Persistence
 
 - **Flyway owns the schema everywhere.** `src/main/resources/db/migration` holds the versioned scripts
