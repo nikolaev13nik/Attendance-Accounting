@@ -136,11 +136,15 @@ key only; a user with the same id in another tenant is an ordinary user.
 
 ### Authorization
 
-**The shared security code lives in `../attendance-security-common-lib`** (`co.il.attendance.security`,
-published to GitHub Packages and pulled in as a Maven dependency; bump `attendance-security-common-lib.version`
+**The shared security and logging code lives in `../attendance-common-lib`** (`co.il.attendance.security`,
+`co.il.attendance.logging`,
+published to GitHub Packages and pulled in as a Maven dependency; bump `attendance-common-lib.version`
 in the pom to take a new release). Its Spring Boot auto-configuration provides `SecurityConstants` (roles, claim
 names, `PLATFORM_TENANT_ID`), `JwtClaimsResolver`, the `RoleHierarchy` and `JwtAuthenticationConverter` beans,
-`TenantInterceptor` and the `AccessDeniedHandler`. Change that behaviour in the library, not here, so
+`TenantInterceptor`, the `AccessDeniedHandler` and the `AuthenticationEntryPoint` (logs every 401). Its logging part puts
+`traceId` (Micrometer Tracing), `userId`, `tenantId` and `pathTenantId` into the MDC for every request and
+writes one `ApiRequest` line per request, plus an `audit` line for platform admin requests. Both parts are
+always on; there is no switch. Change that behaviour in the library, not here, so
 TimeTracking gets the same change. Building needs a GitHub token with `read:packages` under server id `github`
 in `~/.m2/settings.xml`; CI uses its `GITHUB_TOKEN`.
 

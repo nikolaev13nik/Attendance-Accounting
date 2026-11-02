@@ -22,7 +22,7 @@
 		<mapstruct.version>1.6.3</mapstruct.version>
 		<openapi-generator.version>7.23.0</openapi-generator.version>
 		<swagger-annotations.version>2.2.43</swagger-annotations.version>
-		<attendance-security-common-lib.version>0.1.0</attendance-security-common-lib.version>
+		<attendance-common-lib.version>0.1.1</attendance-common-lib.version>
 	</properties>
 
 	<dependencies>
@@ -121,8 +121,8 @@
 		</dependency>
 		<dependency>
 			<groupId>co.il.attendance</groupId>
-			<artifactId>attendance-security-common-lib</artifactId>
-			<version>${attendance-security-common-lib.version}</version>
+			<artifactId>attendance-common-lib</artifactId>
+			<version>${attendance-common-lib.version}</version>
 		</dependency>
 	</dependencies>
 
@@ -130,7 +130,7 @@
 		<repository>
 			<id>github</id>
 			<name>GitHub Packages</name>
-			<url>https://maven.pkg.github.com/nikolaev13nik/attendance-security-common-lib</url>
+			<url>https://maven.pkg.github.com/nikolaev13nik/attendance-common-lib</url>
 		</repository>
 	</repositories>
 
