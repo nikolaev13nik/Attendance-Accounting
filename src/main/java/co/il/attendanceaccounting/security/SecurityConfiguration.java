@@ -2,7 +2,6 @@ package co.il.attendanceaccounting.security;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 
-import org.springframework.boot.security.autoconfigure.web.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,7 +11,6 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -47,11 +45,6 @@ public class SecurityConfiguration {
 
 		}
 		return new SecretKeySpec(keyBytes, "HmacSHA256");
-	}
-
-	@Bean
-	WebSecurityCustomizer webSecurityCustomizer() {
-		return web -> web.ignoring().requestMatchers(PathRequest.toH2Console());
 	}
 
 	@Bean

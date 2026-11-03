@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 import java.util.Optional;
@@ -19,7 +20,6 @@ import co.il.attendanceaccounting.exceptions.UserNotFoundException;
 import co.il.attendanceaccounting.mapper.UserMapper;
 import co.il.attendanceaccounting.model.User;
 import co.il.attendanceaccounting.model.UserBasicKey;
-import jakarta.transaction.Transactional;
 
 import static co.il.attendance.logging.LogContext.TARGET_USER_ID;
 import static co.il.attendance.security.SecurityConstants.PLATFORM_TENANT_ID;

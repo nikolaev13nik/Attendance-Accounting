@@ -46,7 +46,7 @@ public class AttendanceAccountingApplication implements CommandLineRunner{
 		int bootstrapAdminId = accountConfiguration.getBootstrapAdminId();
 		String bootstrapAdminPassword = accountConfiguration.getBootstrapAdminPassword();
 
-		if (!StringUtils.hasText(bootstrapAdminPassword)) {
+		if (isFalse(StringUtils.hasText(bootstrapAdminPassword))) {
 			throw new IllegalStateException(
 					"No bootstrap password was supplied. Set "
 							+ "ATTENDANCE_ACCOUNTING_BOOTSTRAP_ADMIN_PASSWORD (from a Secret, "

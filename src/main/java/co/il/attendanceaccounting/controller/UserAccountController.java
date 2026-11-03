@@ -2,13 +2,15 @@ package co.il.attendanceaccounting.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+import co.il.attendance.security.AdminOnly;
+import co.il.attendance.security.AdminOrSelf;
+import co.il.attendance.security.PlatformAdminOnly;
 import co.il.attendanceaccounting.api.AccountApi;
 import co.il.attendanceaccounting.context.AccountContext;
 import co.il.attendanceaccounting.dto.LoginRequestDto;
@@ -67,7 +69,7 @@ public class UserAccountController implements AccountApi {
                 .build());
     }
 
-    @PreAuthorize("hasRole(T(co.il.attendance.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
+    @AdminOnly
     @Override
     public ResponseEntity<UserProfileDto> removeUser(@PathVariable Integer tenantId, @PathVariable Integer idUser) {
         AccountContext<Void> context = AccountContext.<Void>builder().userBasicKey(new UserBasicKey(tenantId, idUser)).build();
@@ -75,7 +77,7 @@ public class UserAccountController implements AccountApi {
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
 
-    @PreAuthorize("hasRole(T(co.il.attendance.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name()) || #idUser.toString() == authentication.name")
+    @AdminOrSelf
     @Override
     public ResponseEntity<UserProfileDto> editUser(@PathVariable Integer tenantId, @PathVariable Integer idUser,
                                                    @RequestBody UserEditDto userEditDto) {
@@ -85,7 +87,7 @@ public class UserAccountController implements AccountApi {
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
 
-    @PreAuthorize("hasRole(T(co.il.attendance.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
+    @AdminOnly
     @Override
     public ResponseEntity<UserProfileDto> addRole(@PathVariable Integer tenantId, @PathVariable Integer idUser,
                                                   @PathVariable String role) {
@@ -95,7 +97,7 @@ public class UserAccountController implements AccountApi {
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
 
-    @PreAuthorize("hasRole(T(co.il.attendance.security.SecurityConstants.SecurityRoles).ADMINISTRATOR.name())")
+    @AdminOnly
     @Override
     public ResponseEntity<UserProfileDto> removeRole(@PathVariable Integer tenantId, @PathVariable Integer idUser,
                                                   @PathVariable String role) {
@@ -105,7 +107,7 @@ public class UserAccountController implements AccountApi {
         return ResponseEntity.ok(context.getSingleResponseUserProfileDto());
     }
 
-    @PreAuthorize("T(co.il.attendance.security.JwtClaimsResolver).isPlatformAdmin(authentication)")
+    @PlatformAdminOnly
     @Override
     public ResponseEntity<TenantPageDto> getAllTenants(Integer page, Integer size) {
         AccountContext<Void> context = AccountContext.<Void>builder().page(page).pageSize(size).build();

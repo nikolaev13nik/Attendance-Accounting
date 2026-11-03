@@ -26,6 +26,7 @@ public class User {
 	private UserBasicKey userBasicKey;
 	private String firstName;
 	private String lastName;
+	@ToString.Exclude
 	private String password;
 	private String email;
 

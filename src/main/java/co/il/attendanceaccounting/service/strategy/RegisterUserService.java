@@ -62,7 +62,7 @@ public class RegisterUserService extends AccountServiceBase<UserRegisterDto> {
     private Set<String> rolesForNewUser(AccountContext<UserRegisterDto> context) {
         Set<String> roles = new LinkedHashSet<>();
         roles.add(USER.name());
-        if (!context.isTenantHasUsers()) {
+        if (isFalse(context.isTenantHasUsers())) {
             roles.add(ADMINISTRATOR.name());
         }
         return roles;
