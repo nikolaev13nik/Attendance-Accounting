@@ -10,5 +10,6 @@ public class ErrorConstants {
     public static final String CAPTCHA_REJECTED_MSG = "Captcha check failed. Reload the page and try again";
     public static final String CAPTCHA_UNAVAILABLE_MSG = "The captcha could not be verified right now. Try again in a minute";
     public static final String INVALID_PAGE_MSG = "Page %s of size %s is not allowed: page must be 0 or more, size 1 to 100";
+    public static final String CURRENT_PASSWORD_MISMATCH_MSG = "Current password is missing or incorrect";
 
 }

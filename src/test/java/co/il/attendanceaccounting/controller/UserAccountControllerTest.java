@@ -12,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.List;
 import java.util.Set;
 
+import co.il.attendanceaccounting.dto.UserEditDto;
 import co.il.attendanceaccounting.dto.UserProfileDto;
 import co.il.attendanceaccounting.dto.LoginResponseDto;
 import co.il.attendanceaccounting.model.User;
@@ -403,6 +404,74 @@ class UserAccountControllerTest extends BaseApiControllerTest {
         UserProfileDto body = readObject(response, UserProfileDto.class);
         assertEquals("Johnny", body.getFirstName());
         assertEquals("Johnny", findUser(USER_ID).orElseThrow().getFirstName());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("PUT /account/tenant/{tenantId}/user/password/{id} as the same user with the right current password changes it")
+    void editOwnPasswordWithCurrentPasswordTest() {
+        UserEditDto edit = createUserEditDto(null, null, "user-new-pwd", null);
+        edit.setCurrentPassword(USER_PWD);
+
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(USER_TENANT_ID, USER_ID), edit, USER_ID, USER_PWD);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(passwordEncoder.matches("user-new-pwd", findUser(USER_ID).orElseThrow().getPassword()),
+                "Reason: the user proved who they are, so the new password is stored");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("PUT /account/tenant/{tenantId}/user/password/{id} as the same user without the current password returns 400")
+    void editOwnPasswordWithoutCurrentPasswordTest() {
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(USER_TENANT_ID, USER_ID),
+                createUserEditDto(null, null, "stolen-token-pwd", null), USER_ID, USER_PWD);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(),
+                "Reason: a valid token alone must not be enough to take over the account");
+        assertEquals("Current password is missing or incorrect", errorMessage(response));
+        assertTrue(passwordEncoder.matches(USER_PWD, findUser(USER_ID).orElseThrow().getPassword()),
+                "Reason: the rejected request must leave the old password in place");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("PUT /account/tenant/{tenantId}/user/password/{id} as the same user with a wrong current password returns 400")
+    void editOwnPasswordWithWrongCurrentPasswordTest() {
+        UserEditDto edit = createUserEditDto("Johnny", null, "user-new-pwd", null);
+        edit.setCurrentPassword("not-my-password");
+
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(USER_TENANT_ID, USER_ID), edit, USER_ID, USER_PWD);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("Current password is missing or incorrect", errorMessage(response));
+        User user = findUser(USER_ID).orElseThrow();
+        assertTrue(passwordEncoder.matches(USER_PWD, user.getPassword()), "Reason: the password is unchanged");
+        assertEquals("John", user.getFirstName(), "Reason: a rejected request changes nothing, not even the name");
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("PUT /account/tenant/{tenantId}/user/password/{id} by an admin for another user resets it without the current password")
+    void adminResetsAnotherUsersPasswordTest() {
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(USER_TENANT_ID, USER_ID),
+                createUserEditDto(null, null, "reset-by-admin", null), ADMIN_ID, ADMIN_PWD);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode(),
+                "Reason: an administrator resets a forgotten password and cannot know the old one");
+        assertTrue(passwordEncoder.matches("reset-by-admin", findUser(USER_ID).orElseThrow().getPassword()));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("PUT /account/tenant/{tenantId}/user/password/{id} by an admin for their own account still needs the current password")
+    void adminOwnPasswordNeedsCurrentPasswordTest() {
+        ResponseEntity<String> response = send(HttpMethod.PUT, passwordUrl(ADMIN_TENANT_ID, ADMIN_ID),
+                createUserEditDto(null, null, "admin-new-pwd", null), ADMIN_ID, ADMIN_PWD);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(),
+                "Reason: the administrator role does not exempt a caller from proving it is them");
+        assertTrue(passwordEncoder.matches(ADMIN_PWD, findUser(ADMIN_ID).orElseThrow().getPassword()));
     }
 
     @Test

@@ -115,6 +115,10 @@ public abstract class AccountServiceBase<R> implements BaseService<R> {
         user.setPassword(passwordEncoder.encode(rawPassword));
     }
 
+    protected boolean passwordMatches(User user, String rawPassword) {
+        return rawPassword != null && passwordEncoder.matches(rawPassword, user.getPassword());
+    }
+
     private void logFailure(RuntimeException e) {
         ResponseStatus status = AnnotatedElementUtils.findMergedAnnotation(e.getClass(), ResponseStatus.class);
         if (status != null && status.code().is4xxClientError()) {

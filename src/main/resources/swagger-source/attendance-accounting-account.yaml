@@ -627,6 +627,11 @@ definitions:
         description: |
           New password of the user
         type: string
+      currentPassword:
+        description: |
+          The caller's current password; required when users change their own password,
+          not when an administrator sets another user's password
+        type: string
       email:
         description: |
           New email address of the user

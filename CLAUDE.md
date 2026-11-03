@@ -158,6 +158,9 @@ on the controller methods, as in TimeTracking:
 - `removeUser`, `addRole`, `removeRole` — `@AdminOnly`.
 - `editUser` (`PUT /account/tenant/{tenantId}/user/password/{idUser}`) — `@AdminOrSelf`: an administrator or
   the user themselves (`#idUser.toString() == authentication.name`, so the parameter must be named `idUser`).
+  Users changing **their own** password must also send `currentPassword` (checked in `EditUserService.validate`,
+  400 `CurrentPasswordMismatchException` when missing or wrong); an administrator resetting another user's
+  password does not. "Own" means token subject = `idUser` and token tenant = path tenant.
 - `getAllTenants` — `@PlatformAdminOnly`.
 
 **Tenant isolation.** Every secured endpoint lives under `/account/tenant/{tenantId}/...`.
