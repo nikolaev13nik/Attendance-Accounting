@@ -11,6 +11,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
@@ -37,6 +39,11 @@ import static co.il.attendance.security.SecurityConstants.PLATFORM_TENANT_ID;
         mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
 )
 public abstract class BaseApiControllerTest {
+
+    @DynamicPropertySource
+    static void captchaVerifyUrl(DynamicPropertyRegistry registry) {
+        registry.add("attendance-accounting.captcha.verify-url", FakeTurnstile::verifyUrl);
+    }
 
     @LocalServerPort
     protected int port;
@@ -228,6 +235,7 @@ public abstract class BaseApiControllerTest {
                 .firstName(firstName)
                 .lastName(lastName)
                 .email(email)
+                .captchaToken(FakeTurnstile.VALID_TOKEN)
                 .build();
     }
 

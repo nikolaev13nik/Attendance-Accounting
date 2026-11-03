@@ -13,6 +13,7 @@ import co.il.attendanceaccounting.mapper.TenantMappingMapper;
 import co.il.attendanceaccounting.model.TenantMapping;
 import co.il.attendanceaccounting.model.User;
 import co.il.attendanceaccounting.model.UserBasicKey;
+import co.il.attendanceaccounting.security.CaptchaVerifier;
 import co.il.attendanceaccounting.service.base.AccountServiceBase;
 
 import static co.il.attendance.security.SecurityConstants.SecurityRoles.ADMINISTRATOR;
@@ -23,10 +24,13 @@ public class SignUpService extends AccountServiceBase<SignUpRequestDto> {
 
     @Autowired
     private TenantMappingMapper tenantMappingMapper;
+    @Autowired
+    private CaptchaVerifier captchaVerifier;
 
     @Override
     protected void validate(AccountContext<SignUpRequestDto> context) {
         SignUpRequestDto request = context.getTask();
+        captchaVerifier.verify(request.getCaptchaToken());
         if (tenantMappingRepository.existsByCompanyNameIgnoreCase(request.getCompanyName().trim())) {
             throw new TenantExistsException();
         }

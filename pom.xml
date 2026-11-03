@@ -22,6 +22,7 @@
 		<mapstruct.version>1.6.3</mapstruct.version>
 		<openapi-generator.version>7.23.0</openapi-generator.version>
 		<swagger-annotations.version>2.2.43</swagger-annotations.version>
+		<wiremock.version>3.9.2</wiremock.version>
 		<attendance-common-lib.version>0.1.1</attendance-common-lib.version>
 	</properties>
 
@@ -117,6 +118,12 @@
 			<groupId>org.flywaydb.flyway-test-extensions</groupId>
 			<artifactId>flyway-spring-test</artifactId>
 			<version>${flyway-spring-test.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.wiremock</groupId>
+			<artifactId>wiremock-standalone</artifactId>
+			<version>${wiremock.version}</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>

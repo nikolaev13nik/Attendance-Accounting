@@ -76,6 +76,12 @@ spec:
                   name: {{ .Values.secret.name }}
                   key: {{ .Values.jwtSecretKey }}
 
+            - name: ATTENDANCE_ACCOUNTING_CAPTCHA_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secret.name }}
+                  key: {{ .Values.captchaSecretKey }}
+
             {{- with .Values.jwtTtlSeconds }}
             - name: ATTENDANCE_ACCOUNTING_SECURITY_JWT_TTL_SECONDS
               valueFrom:

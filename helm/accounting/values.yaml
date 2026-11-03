@@ -26,6 +26,8 @@ database:
 
 jwtSecretKey: JWT_SECRET
 
+captchaSecretKey: CAPTCHA_SECRET
+
 jwtTtlSeconds: "14400"
 
 bootstrapAdmin:

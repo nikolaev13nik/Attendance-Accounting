@@ -24,6 +24,12 @@ public class AccountConfiguration {
 	@Value("${attendance-accounting.security.jwt.ttl-seconds:3600}")
 	private long jwtTtlSeconds;
 
+	@Value("${attendance-accounting.captcha.secret}")
+	private String captchaSecret;
+
+	@Value("${attendance-accounting.captcha.verify-url:https://challenges.cloudflare.com/turnstile/v0/siteverify}")
+	private String captchaVerifyUrl;
+
 	@Bean
 	public PasswordEncoder getPasswordEncoder() {
 		return new BCryptPasswordEncoder();

@@ -74,6 +74,8 @@ paths:
       description: |
         Creates the tenant and its administrator in one transaction: either both exist afterwards or neither.
         The administrator's name and email also become the organization's contact name and email.
+        The request must carry a Cloudflare Turnstile token: a token Cloudflare rejects is 400, and Cloudflare
+        being unreachable is 503, with nothing created in either case.
       operationId: signUp
       tags:
         - Account
@@ -98,6 +100,8 @@ paths:
           $ref: '#/responses/409-Conflict'
         '500':
           $ref: '#/responses/500-InternalServerError'
+        '503':
+          $ref: '#/responses/503-ServiceUnavailable'
 
   /account/tenant/{tenantId}/user:
     post:
@@ -514,6 +518,13 @@ definitions:
         type: string
         format: email
         maxLength: 255
+      captchaToken:
+        description: |
+          One-time Cloudflare Turnstile token from the sign-up page, proving a person in a browser sent the request.
+          The service verifies it with Cloudflare before creating anything
+        type: string
+        minLength: 1
+        maxLength: 2048
     required:
       - companyName
       - phone
@@ -522,6 +533,7 @@ definitions:
       - firstName
       - lastName
       - email
+      - captchaToken
 
   SignUpResponseDto:
     type: object
@@ -737,5 +749,11 @@ responses:
   500-InternalServerError:
     description: |
       Internal Server Error - an unexpected condition prevented the request from completing.
+    schema:
+      $ref: '#/definitions/ApiError'
+
+  503-ServiceUnavailable:
+    description: |
+      Service Unavailable - a service this request depends on could not be reached; try again later.
     schema:
       $ref: '#/definitions/ApiError'

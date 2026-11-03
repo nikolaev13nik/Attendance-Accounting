@@ -17,6 +17,12 @@ import co.il.attendanceaccounting.model.TenantMapping;
 import co.il.attendanceaccounting.model.User;
 import co.il.attendanceaccounting.model.UserBasicKey;
 
+import static co.il.attendanceaccounting.exceptions.ErrorConstants.CAPTCHA_REJECTED_MSG;
+import static co.il.attendanceaccounting.exceptions.ErrorConstants.CAPTCHA_UNAVAILABLE_MSG;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -178,6 +184,62 @@ class SignUpControllerTest extends BaseApiControllerTest {
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode(),
                 "Reason: an organization without an administrator must never be creatable anonymously");
         assertEquals(tenantsBefore, tenantMappingRepository.count());
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/signup sends the captcha token with the service's secret to Cloudflare before creating anything")
+    void signUpVerifiesCaptchaWithSecretTest() {
+        ResponseEntity<String> response = send(HttpMethod.POST, SIGN_UP_URL, initrode(), null, null);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        FakeTurnstile.server().verify(postRequestedFor(urlEqualTo(FakeTurnstile.VERIFY_PATH))
+                .withRequestBody(containing("secret=test-captcha-secret"))
+                .withRequestBody(containing("response=" + FakeTurnstile.VALID_TOKEN)));
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/signup with a captcha token Cloudflare rejects returns 400 and creates nothing")
+    void signUpWithRejectedCaptchaTest() {
+        long tenantsBefore = tenantMappingRepository.count();
+        long usersBefore = userRepository.count();
+        SignUpRequestDto request = initrode();
+        request.setCaptchaToken(FakeTurnstile.REJECTED_TOKEN);
+
+        ResponseEntity<String> response = send(HttpMethod.POST, SIGN_UP_URL, request, null, null);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(),
+                "Reason: a token Cloudflare does not vouch for means no person passed the check");
+        assertEquals(CAPTCHA_REJECTED_MSG, errorMessage(response));
+        assertNothingCreated(tenantsBefore, usersBefore);
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/signup while Cloudflare cannot be reached returns 503 and creates nothing")
+    void signUpWhileCaptchaUnavailableTest() {
+        long tenantsBefore = tenantMappingRepository.count();
+        long usersBefore = userRepository.count();
+        SignUpRequestDto request = initrode();
+        request.setCaptchaToken(FakeTurnstile.UNAVAILABLE_TOKEN);
+
+        ResponseEntity<String> response = send(HttpMethod.POST, SIGN_UP_URL, request, null, null);
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode(),
+                "Reason: an unverifiable token is refused, never let through");
+        assertEquals(CAPTCHA_UNAVAILABLE_MSG, errorMessage(response));
+        assertNothingCreated(tenantsBefore, usersBefore);
+    }
+
+    @Test
+    @FlywayTest
+    @DisplayName("POST /account/signup without a captcha token returns 400 and creates nothing")
+    void signUpWithoutCaptchaTest() {
+        SignUpRequestDto request = initrode();
+        request.setCaptchaToken(null);
+
+        assertRejected(request);
     }
 
     private void assertRejected(SignUpRequestDto request) {

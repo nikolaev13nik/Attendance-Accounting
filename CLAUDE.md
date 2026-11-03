@@ -29,8 +29,10 @@ claims. Coordinate any such change across repos.
 ```
 
 Requires env var `ATTENDANCE_ACCOUNTING_JWT_SECRET` — the HMAC signing secret, **at least 32 bytes** or
-the context fails to start (`SecurityConfiguration.jwtSecretKey`). Tests supply their own via
-`src/test/resources/application.properties`.
+the context fails to start (`SecurityConfiguration.jwtSecretKey`). It also requires
+`ATTENDANCE_ACCOUNTING_CAPTCHA_SECRET`, the Cloudflare Turnstile secret key (Cloudflare's public test secret
+`1x0000000000000000000000000000000AA` accepts every token and is what Compose and the local cluster use). Tests
+supply both via `src/test/resources/application.properties`.
 
 The JaCoCo threshold is a real gate: `-Pci` fails the build under 85% line coverage (bundle-wide,
 generated sources and the boot entrypoint excluded — see the `<excludes>` in the `ci` profile). New
@@ -177,6 +179,19 @@ for out-of-range values, since `PageRequest` would throw first. Only the platfor
 (`@PreAuthorize` on `JwtClaimsResolver.isPlatformAdmin`; anyone else gets 403). It is the one secured endpoint
 outside `/account/tenant/**`, because it spans all tenants, so the tenant interceptor does not apply to it.
 
+**Sign-up is behind a CAPTCHA.** The GUI's sign-up page runs a Cloudflare Turnstile widget and sends the
+one-time token it gets as `captchaToken` (required). `SignUpService.validate` first hands that token and the
+secret key to Cloudflare's siteverify endpoint through `security.CaptchaVerifier` (a plain `RestClient`, 2 s
+connect / 5 s read, `attendance-accounting.captcha.verify-url`): a token Cloudflare rejects is 400
+`CaptchaRejectedException`, and Cloudflare being unreachable is 503 `CaptchaUnavailableException` (fail closed,
+never let through), both before the database is touched. The secret is key `CAPTCHA_SECRET` in the
+hand-made `attendance-secrets` Secret; the public site key lives in the GUI's `config.json`. Tests point
+`verify-url` at `FakeTurnstile`, a WireMock server started once per JVM, whose tokens `VALID_TOKEN`,
+`REJECTED_TOKEN` and `UNAVAILABLE_TOKEN` drive the three outcomes; `createSignUpRequestDto` sends the valid one.
+On GKE, `POST /account/signup` is also rate-limited per client address by a separate nginx Ingress
+(`ingress.signupLimit` in the platform chart's `values-gcp.yaml`), which answers 429 before this service sees
+the request.
+
 **Creating organizations and users.** A new organization is created only by `POST /account/signup`
 (public, `SignUpService`), which saves the tenant and its first administrator in one transaction; the
 administrator's name and email double as the tenant's contact name and email. There is deliberately no
@@ -230,8 +245,7 @@ sign-up, login). Never log a password, token or email; `PipelineLoggingTest` che
 
 ### Known gaps (don't assume these exist)
 
-- `POST /account/signup` is public and unthrottled, so anyone can create organizations in bulk; rate limiting
-  is not in place yet.
+- Sign-up is rate-limited only on GKE (the ingress); Compose and the local cluster have the CAPTCHA alone.
 - No Kafka/Spring Cloud Stream, no outbound clients to other services, no scheduled jobs here.
 
 ## Testing conventions
