@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## System context
 
 This repo is the **Accounting** microservice (`co.il.attendanceaccounting`) in a system of ~5 services
-behind an API Gateway / service discovery layer (see
+behind one nginx ingress (see
 `../attendance-project-common/docs/TimeTracker_docs.md` for the overall design). It owns **user accounts,
 roles and authentication**, and it is the only service that *issues* JWTs — every sibling service
 (notably `../Attendance-TimeTracking`) only validates them. Attendance records, working hours, statistics
@@ -152,12 +152,13 @@ in `~/.m2/settings.xml`; CI uses its `GITHUB_TOKEN`.
 
 Roles are `USER`, `ADMINISTRATOR` (admin of one tenant) and `PLATFORM_ADMIN` (the bootstrap account). The
 shared `RoleHierarchy` makes `PLATFORM_ADMIN > ADMINISTRATOR > USER`, so
-`hasRole('ADMINISTRATOR')` also admits the platform admin. Rules are `@PreAuthorize` annotations on the
-controller methods, as in TimeTracking:
+`hasRole('ADMINISTRATOR')` also admits the platform admin. Rules are the shared method-security annotations
+on the controller methods, as in TimeTracking:
 
-- `removeUser`, `addRole`, `removeRole` — `ROLE_ADMINISTRATOR`.
-- `editUser` (`PUT /account/tenant/{tenantId}/user/password/{idUser}`) — an administrator or the user themselves
-  (`#idUser.toString() == authentication.name`).
+- `removeUser`, `addRole`, `removeRole` — `@AdminOnly`.
+- `editUser` (`PUT /account/tenant/{tenantId}/user/password/{idUser}`) — `@AdminOrSelf`: an administrator or
+  the user themselves (`#idUser.toString() == authentication.name`, so the parameter must be named `idUser`).
+- `getAllTenants` — `@PlatformAdminOnly`.
 
 **Tenant isolation.** Every secured endpoint lives under `/account/tenant/{tenantId}/...`.
 The shared `TenantInterceptor` (registered for `attendance.security.tenant.path-patterns=/account/tenant/**`,
@@ -207,7 +208,7 @@ everything else must be authenticated. It wires the shared `AccessDeniedHandler`
 JSON message `"Forbidden"` (tests assert it). Method security runs after request binding and validation, so a
 malformed request from an unauthorized caller gets 400 rather than 403.
 
-Sessions are stateless, CSRF and CORS are disabled, and the H2 console is excluded from the filter chain.
+Sessions are stateless and CSRF and CORS are disabled. The H2 console is off.
 
 ### Logging
 
