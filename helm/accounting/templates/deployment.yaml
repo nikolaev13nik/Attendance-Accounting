@@ -19,6 +19,8 @@ spec:
     metadata:
       labels:
         app: accounting
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
       containers:
         - name: accounting
