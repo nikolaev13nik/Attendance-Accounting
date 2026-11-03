@@ -99,7 +99,6 @@ public abstract class BaseApiControllerTest {
             return rt;
     }
 
-    /** Helper to send HTTP requests with optional Basic Authentication */
     protected ResponseEntity<String> send(
             HttpMethod method, String path, Object body, Integer secureUser, String securePass) {
 
@@ -109,9 +108,6 @@ public abstract class BaseApiControllerTest {
         return sendWithToken(method, path, body, token);
     }
 
-    /**
-     * Helper to send HTTP requests with an already obtained bearer token
-     */
     protected ResponseEntity<String> sendWithToken(
             HttpMethod method, String path, Object body, String token) {
 
@@ -157,7 +153,6 @@ public abstract class BaseApiControllerTest {
         return obtainToken(PROTECTED_ADMIN_ID, BOOTSTRAP_PWD, PLATFORM_TENANT_ID);
     }
 
-    /** Resolves the tenant id for the well-known seeded users used across tests */
     protected Integer tenantIdFor(Integer idUser) {
         if (ADMIN_ID.equals(idUser)) {
             return ADMIN_TENANT_ID;
@@ -171,7 +166,6 @@ public abstract class BaseApiControllerTest {
         return null;
     }
 
-    /** Deserialize the response body into a single Object */
     protected <T> T readObject(ResponseEntity<String> response, Class<T> clazz) {
         try {
             return objectMapper.readValue(response.getBody(), clazz);
@@ -180,7 +174,6 @@ public abstract class BaseApiControllerTest {
         }
     }
 
-    /** Deserialize the response body into a List of the given element type */
     protected <T> List<T> readList(ResponseEntity<String> response, Class<T> elementType) {
         try {
             return objectMapper.readValue(
@@ -192,7 +185,6 @@ public abstract class BaseApiControllerTest {
         }
     }
 
-    /** Parse the raw string response body to a Jackson JsonNode */
     protected JsonNode json(ResponseEntity<String> response) {
         try {
             return objectMapper.readTree(response.getBody());
@@ -201,7 +193,6 @@ public abstract class BaseApiControllerTest {
         }
     }
 
-    /** Retrieve message field from a structured error response */
     protected String errorMessage(ResponseEntity<String> response) {
         try {
             JsonNode node = json(response);
@@ -214,7 +205,6 @@ public abstract class BaseApiControllerTest {
         }
     }
 
-    // Helper builders matching Dto properties
     protected UserRegisterDto createUserRegisterDto(Integer idUser, String password, String firstName, String lastName, String email) {
         return UserRegisterDto.builder()
                 .idUser(idUser)
